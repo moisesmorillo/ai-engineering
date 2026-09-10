@@ -2,7 +2,7 @@
 
 These examples demonstrate evidence and impact, not universal project rules. Locations and names are illustrative.
 
-## 1. Framework default generic weakens typing
+## 1. Bare Hono handler generic weakens binding types
 
 **Severity:** MAJOR
 
@@ -12,13 +12,13 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 
 **Strong finding wording**
 
-> **[MAJOR] The default Hono environment type hides missing Worker bindings**
-> **Location:** `src/http/app.ts:12`
-> **Why it matters:** `new Hono()` leaves `c.env` weakly typed, while this route reads `OBJECTS` and `SIGNING_KEY`. A misspelled or undeclared binding can pass typechecking and fail only in the deployed Worker.
-> **Evidence:** `upload.ts` reads both bindings from the context, but the app instance does not supply the repository's `WorkerEnv` generic.
-> **Recommended direction:** Instantiate the app with the established environment type and propagate it through route composition so binding access is checked.
+> **[MAJOR] A bare `Handler` annotation erases the app's Worker binding types**
+> **Location:** `src/http/handlers/upload.ts:8`
+> **Why it matters:** The parent app is correctly declared as `new Hono<WorkerEnv>()`, but the exported handler is annotated only as `Handler`. In the reviewed Hono version, `Handler` defaults its environment generic to `any`, so `c.env.OBJECT` passes typechecking even though the declared binding is `OBJECTS`; registering that already-widened handler on the typed app does not restore the lost check inside it.
+> **Evidence:** Hono declares `Handler<E extends Env = any, ...>`, and this file uses `const upload: Handler = ...`. By contrast, the `Hono` class itself defaults `E` to `BlankEnv`, so `new Hono()` is not the source of broad binding access.
+> **Recommended direction:** Parameterize the standalone handler as `Handler<WorkerEnv>`, preserve `E` in any shared composition helper, or let a typed route infer the inline handler context.
 
-**Why the strong version is better:** It identifies the lost guarantee, the runtime failure, and the bounded correction instead of demanding unspecified "more types."
+**Why the strong version is better:** It identifies the specific broad generic default and composition point, distinguishes it from `Hono`'s `BlankEnv` default, and shows the concrete typo that escapes checking.
 
 ## 2. Handler depends directly on infrastructure
 
@@ -126,25 +126,25 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 > **Evidence:** The switch handles `running`, `complete`, and `failed`; `paused` has no branch, and the compiler is not required to prove exhaustiveness here.
 > **Recommended direction:** Return from an exhaustive closed-state match and make `paused` behavior explicit.
 
-**Why the strong version is better:** It identifies the missing state and externally observable consequence rather than suggesting a `default` that could hide future omissions.
+**Why the strong version is better:** It identifies the missing state and externally observable consequence rather than suggesting a throw-only `default` that could hide future omissions.
 
-## 8. Artificial runtime default for compile-time exhaustiveness
+## 8. Compile-time exhaustiveness with an artificial runtime default
 
 **Severity:** MINOR
 
 **Bad finding wording**
 
-> This default is ugly.
+> This default is ugly and weakens exhaustiveness.
 
 **Strong finding wording**
 
-> **[MINOR] The synthetic default creates an unreachable runtime branch and weakens exhaustiveness**
-> **Location:** `src/jobs/label.ts:22-24`
-> **Why it matters:** Every `JobState` member is already handled, but `default: throw new Error("unreachable")` prevents the compiler pattern used elsewhere from identifying a newly added unhandled state and creates a meaningless uncovered branch.
-> **Evidence:** The repository's closed-state helpers use a `never` exhaustiveness check after explicit cases; no untyped input reaches this function.
-> **Recommended direction:** Use the established compile-time `never` check without adding an artificial runtime case. Validate at the external boundary if untyped states can actually enter.
+> **[MINOR] The valid `never` check is carried by an unnecessary runtime default**
+> **Location:** `src/jobs/label.ts:22-27`
+> **Why it matters:** `default: { const exhaustive: never = state; throw new Error(...) }` does provide compile-time exhaustiveness: adding an unhandled `JobState` makes the `never` assignment fail. However, this function receives only already-validated `JobState` values, so the throw is conceptually unreachable and adds a meaningless branch-coverage obligation without defining a real recovery path.
+> **Evidence:** All current union members return from explicit cases, and the boundary parser rejects unknown states before calling this function. Unlike a bare `default: throw new Error("unreachable")`, the `never` assignment—not the throw—is what proves exhaustiveness to TypeScript.
+> **Recommended direction:** Retain a compile-time `never`/`satisfies never` check using the repository's minimal post-switch pattern rather than an artificial runtime branch. If untyped values can actually reach this code, validate them at that boundary instead.
 
-**Why the strong version is better:** It explains both the type-safety and coverage effects and conditions the advice on boundary validation.
+**Why the strong version is better:** It credits the `never` assignment as a real compile-time check, distinguishes it from an untyped throw-only default, and limits the criticism to unnecessary runtime behavior and coverage noise.
 
 ## 9. Coverage exclusion hides production code
 

@@ -30,7 +30,7 @@ Do not demand advanced conditional types, branded types, or generic abstractions
 
 Apply this section only to Hono or Worker code.
 
-- Check whether default or implicit Hono generics weaken environment, bindings, variables, route schema, or context typing.
+- Inspect the installed Hono version's exact API defaults before claiming type degradation. Do not assume every omitted generic is broad; flag only defaults, annotations, or composition points that actually weaken environment, bindings, variables, route schema, or context typing.
 - Ensure Worker secrets and bindings have precise environment types rather than broad string maps or `any`.
 - Keep Hono request/context/response types in the transport layer when the project maintains application/core boundaries.
 - Flag handlers that call database, object-store, queue, or other infrastructure adapters directly when an application service/port is the intended boundary.
