@@ -15,19 +15,22 @@ Use this after automated checks and an initial diff read. Apply each section in 
 
 Use Clean Architecture concepts pragmatically. A different intentional architecture is not a defect.
 
-## Control flow and state
+## Control-flow complexity and state
 
-Prefer clarity over stylistic purity.
+Prefer clarity over stylistic purity. Treat cyclomatic complexity (independent paths), cognitive complexity (nesting and mental breaks), nesting depth, boolean-expression length, repeated guards, and implicit transitions as evidence to investigate—not automatic defects. Use configured metrics when available; otherwise reason qualitatively. Ask whether the paths make behavior exhaustive, invalid states visible, security invariants auditable, tests mappable to decisions, and later changes safe.
 
 - Replace excessive nesting with guard clauses when branches are independent preconditions.
-- Keep an ordinary `if` when the decision is simple and binary.
-- For closed or discriminated states, prefer an exhaustive `switch` or the language's idiomatic pattern matching.
+- Keep an ordinary `if` when the decision is simple and binary; several short, obvious early returns may be the clearest implementation.
+- For closed or discriminated states, prefer an exhaustive `switch` or idiomatic pattern matching when it makes coverage and invalid states obvious.
+- Look for one function mixing classification, combination/conflict validation, policy, variant parsing, and domain construction; hidden state-machine transitions; loosely related booleans that permit invalid combinations; and duplicated parsing/validation logic.
+- When a closed protocol/state matrix has materially difficult combinations, consider `classify -> exhaustive dispatch -> variant-specific handling`, or an explicit decision table/state-machine equivalent. Do not impose this shape where a few guards are simpler.
 - For multi-step fallible pipelines, consider explicit typed result/state flow when it makes transitions and failures clearer.
-- Avoid `else` after an unconditional return when removing it clarifies the happy path.
-- Look for duplicated state transitions, implicit fallthrough, and loosely related booleans that permit invalid combinations.
 - Question unconditional or infinite loops when a cursor, work item, or termination condition is already explicit.
-- Do not remove readable conditionals merely to look functional, and do not add an FP library solely to eliminate them.
-- Prefer compile-time exhaustiveness. Do not add artificial unreachable runtime branches only to appease a pattern or coverage tool.
+- Do not remove readable conditionals merely to look functional, prescribe a switch for its own sake, or add an FP library solely to eliminate them. Prefer compile-time exhaustiveness; do not add artificial unreachable runtime branches only to appease a pattern or coverage tool.
+
+Raise a complexity concern from a MINOR/non-blocking note to MAJOR only when it materially increases correctness risk in authorization, destructive operations, concurrency/CAS, retries/idempotency, lifecycle/state transitions, recovery/deletion flows, or protocol acceptance. Complexity alone is not a BLOCKER. A finding must name the exact function/file, explain the decision matrix and why it matters, identify mixed responsibilities, propose a lower-complexity shape, say whether behavior can remain unchanged, and name regression tests. High coverage does not automatically excuse hard-to-audit branch interactions: check whether tests map to decisions and whether mutation testing could expose gaps. Conversely, do not manufacture a finding when control flow and tests make completeness obvious.
+
+- [ ] Control flow is auditable: high-risk parsers/state machines/auth/concurrency code does not hide a large decision matrix inside ad-hoc branching; closed states and exhaustive dispatch are used where they materially reduce reasoning complexity.
 
 ## Lifecycle and concurrency state ownership
 
@@ -49,6 +52,8 @@ Check protocol values, statuses, error codes, route paths, media types, headers,
 - Are unrelated literals being centralized only because they happen to share a value?
 
 Centralize meaning, not coincidental spelling.
+
+- [ ] Structured protocol formats have a canonical parser/formatter; callers do not validate a representation and then manually slice, split, or regex that same representation.
 
 ## Errors and failure behavior
 
