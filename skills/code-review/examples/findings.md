@@ -271,3 +271,25 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 > **Recommended direction:** Make a typed route capability policy authoritative for route shape and allowed methods, then derive Hono registration metadata, CORS behavior, and OpenAPI operations from it (or use the repository's existing route-policy primitive). Do not replace `if` with `switch`, add a generic router abstraction, or centralize routes whose authorization or exposure policies intentionally differ. Add route-matrix tests covering every registered method/path and preflight, runtime, and generated-OpenAPI agreement, including an assertion that adding a route cannot silently omit its CORS policy.
 
 **Why the strong version is better:** It identifies the semantic public-API rule and all owners, explains the drift failure, recommends one typed policy rather than a cosmetic control-flow change, and preserves intentionally different route policies.
+
+## 16. Obsidian mirror port: correct dependency direction, possible vocabulary leakage
+
+**Review calibration:** Do not report a Clean/Hexagonal dependency violation for this structure:
+
+- `packages/core/src/mirror/conditional-current-note-repository.port.ts` owns `ConditionalCurrentNoteRepository`.
+- `packages/core/src/mirror/mirror-storage.types.ts` and `packages/core/src/mirror/current-generation-service.ts` expose application-level current-generation observations and opaque replacement/CAS capabilities.
+- `apps/worker/src/infrastructure/current-object.codec.ts` and `storage-object.codec.ts` implement or translate the core contracts.
+
+The dependency points inward: core defines the capability and the Worker adapter implements it. Persistence concerns in the port are not themselves a violation.
+
+**Possible finding, only if the names are coupled to the adapter:**
+
+> **[MINOR] Core port vocabulary reflects the current object-upload adapter**
+> **Location:** `packages/core/src/mirror/mirror-storage.types.ts:StoredLiveCurrentGeneration.uploaded`; translated by `apps/worker/src/infrastructure/current-object.codec.ts`
+> **Why it matters:** The core contract otherwise has correct dependency direction, but `uploaded` may describe an R2 object-write event rather than the application invariant the service needs: an authoritative storage-assigned commit timestamp. If the adapter changes to Postgres or another store, the name may force callers to preserve object-upload semantics that no longer exist.
+> **Evidence:** The core port owns the type and the Worker codec translates the stored representation, so this is vocabulary leakage—not core importing infrastructure. The surrounding `format: 2`, Zod persisted-envelope schemas, `bridgeFormat`, raw storage bytes, R2/custom metadata, and storage ETags remain infrastructure concerns and should not appear in these core types.
+> **Recommended direction:** Consider naming the application-level concept `committedAt` or `persistedAt`, keeping `uploaded` translation inside the adapter. No port or dependency inversion is required if the field's actual invariant is already storage-agnostic. Add core contract tests for the timestamp/generation invariant and adapter tests for the codec translation; run type checks to verify no persisted representation crossed inward.
+
+**Do not manufacture a finding:** `StoredLiveCurrentGeneration`, `StoredTombstoneCurrentGeneration`, or persistence-oriented port names are not automatically wrong. Report a stronger **MAJOR** finding only if core imports `R2Object`, exposes bucket keys/custom metadata/storage ETags, depends on `format: 2` or raw envelope shapes, or otherwise imports/embeds Worker adapter semantics. In that case, move an application-owned observation/port DTO into core and translate the SDK/persisted representation in infrastructure.
+
+**Why the strong version is better:** It distinguishes correct dependency inversion from optional vocabulary refinement, identifies the exact owner and translation boundary, and reserves a major finding for concrete infrastructure or representation leakage.

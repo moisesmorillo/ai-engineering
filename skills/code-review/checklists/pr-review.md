@@ -40,7 +40,7 @@ Confirm the runner discovers the tests and that assertions establish the intende
 
 ## 7. Inspect architecture boundaries
 
-Check conceptual responsibilities, ownership, dependency direction, package exports, and transport/application/infrastructure separation according to the project's chosen architecture. Look for direct infrastructure use in handlers and private cross-package imports.
+Check conceptual responsibilities, ownership, dependency direction, package exports, and transport/application/infrastructure separation according to the project's chosen architecture. For layered, Clean, or Hexagonal designs, inspect imports and contracts across domain/core, application/use cases, ports, transport, infrastructure/adapters, and framework/composition. Confirm that inner layers do not import concrete outer concerns, that application-owned outbound ports describe use-case capabilities, and that infrastructure adapts to those ports. Inspect for storage/transport representations, SDK types, framework APIs, and adapter vocabulary leaking inward; do not flag an abstract persistence port merely because it concerns storage, and do not review by directory name alone.
 
 ## 8. Inspect data-safety and security implications
 
