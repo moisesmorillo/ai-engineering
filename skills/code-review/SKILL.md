@@ -38,6 +38,7 @@ At minimum:
 - Prefer typed or structured failures when supported. Never let an important failure silently become a successful empty result.
 - Prioritize data integrity, trust boundaries, and externally observable behavior over convenience or style.
 - Treat coverage as a regression signal, not proof of behavior quality.
+- For async work that crosses lifecycle boundaries, identify the relevant lifetimes and make each `busy`, `pending`, `inFlight`, `loaded`, or `active` guard belong to the lifetime of the invariant it protects. Do not assume teardown cancels host work; check that reload, re-enable, or retry cannot reset exclusion while non-cancellable work remains pending, and that stale completion cannot affect a newer lifetime. When operation ownership and presentation/session ownership differ, keep them separate. Apply the detailed lifecycle/interleaving checks in the semantic checklist.
 - Do not add dependencies, abstraction, functional-programming libraries, or type cleverness solely to satisfy reviewer taste.
 
 ## Severity and prioritization
@@ -136,4 +137,4 @@ Before issuing the verdict, ask:
 - Is the implementation simpler or more complicated than necessary?
 - Are tests proving behavior or only satisfying mocks and coverage?
 
-For a re-review, do not say "looks good" merely because CI is green. Mark each prior finding `fixed`, `partially fixed`, `not fixed`, `explicitly deferred with acceptable rationale`, or `withdrawn / not applicable`, with evidence supporting that status. A withdrawal must cite evidence disproving the original finding. Approve only when every remaining issue is truly non-blocking.
+For a re-review, do not say "looks good" merely because CI is green. Mark each prior finding `fixed`, `partially fixed`, `not fixed`, `explicitly deferred with acceptable rationale`, or `withdrawn / not applicable`, with evidence supporting that status. A withdrawal must cite evidence disproving the original finding. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Approve only when every remaining issue is truly non-blocking.
