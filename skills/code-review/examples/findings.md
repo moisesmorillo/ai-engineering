@@ -235,3 +235,21 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 > **Recommended direction:** Keep operation exclusion owned by the longer-lived operation owner, while keeping presentation/session identity separate so stale completion cannot update the new session. Leave the first promise pending during unload and re-enable, assert that the second operation does not start, then settle the first operation and verify normal operation resumes.
 
 **Why the strong version is better:** It identifies the mismatched lifetimes, the harmful interleaving, the test's ordering gap, and a bounded direction that separates operation ownership from stale presentation.
+
+## 14. Correct but hard-to-audit conditional protocol parser
+
+**Severity:** MINOR (raise only if the structure creates a material acceptance or security risk)
+
+**Bad finding wording**
+
+> Too many `if` statements in the conditional-request parser. Use a `switch`.
+
+**Strong finding wording**
+
+> **[MINOR] The conditional-request parser hides a protocol decision matrix behind otherwise readable guards**
+> **Location:** `apps/worker/src/http/conditional-request.ts:38-75`
+> **Why it matters:** The early returns avoid deep nesting and the current behavior may be correct, so branch count alone is not a defect. However, this one function classifies date and mixed-header conflicts, distinguishes missing conditions, applies the route-mode policy, validates `If-None-Match`, validates `If-Match`, and converts the ETag into a revision. The independent combinations make acceptance completeness and future variants harder to audit than the function's short length suggests.
+> **Evidence:** The outer conflict/missing checks, mode-dependent `If-None-Match` branch, ETag validation, and revision extraction form separate protocol decisions. The tests cover important examples but do not by themselves make the whole decision table apparent.
+> **Recommended direction:** Preserve behavior and consider `classify -> exhaustive dispatch -> focused variant parsers` (or an equivalent explicit decision table). Replace `createApplicationEtag(ifMatch)` followed by `ifMatch.slice(4, -1)` with the owning canonical ETag parser, `parseApplicationEtag`, so validation and extraction cannot drift. Add table-driven tests for every valid/invalid combination, including mode and mixed-condition interactions.
+
+**Why the strong version is better:** It credits the simple early-return control flow, explains the correctness/auditability risk, gives a bounded decomposition, identifies duplicated format knowledge, and avoids treating `switch` or refactoring as an automatic requirement.

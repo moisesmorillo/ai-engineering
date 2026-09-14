@@ -33,13 +33,32 @@ At minimum:
 
 - Prefer conceptual responsibility and clear ownership over arbitrary file or function size limits.
 - Preserve the project's intentional architecture; flag boundary erosion and accidental dependency direction, not pattern differences by themselves.
-- Prefer clear control flow: guard independent preconditions, use ordinary `if` for simple binary choices, and use exhaustive handling for closed states.
+- Prefer clear control flow: guard independent preconditions, use ordinary `if` for simple binary choices, and use exhaustive handling for closed states. Treat control-flow complexity as a correctness and auditability signal, not a branch-count style rule; apply the detailed control-flow checks below.
 - Give one semantic policy one authoritative source. Do not centralize unrelated literals merely because their text or value matches.
 - Prefer typed or structured failures when supported. Never let an important failure silently become a successful empty result.
 - Prioritize data integrity, trust boundaries, and externally observable behavior over convenience or style.
 - Treat coverage as a regression signal, not proof of behavior quality.
 - For async work that crosses lifecycle boundaries, identify the relevant lifetimes and make each `busy`, `pending`, `inFlight`, `loaded`, or `active` guard belong to the lifetime of the invariant it protects. Do not assume teardown cancels host work; check that reload, re-enable, or retry cannot reset exclusion while non-cancellable work remains pending, and that stale completion cannot affect a newer lifetime. When operation ownership and presentation/session ownership differ, keep them separate. Apply the detailed lifecycle/interleaving checks in the semantic checklist.
 - Do not add dependencies, abstraction, functional-programming libraries, or type cleverness solely to satisfy reviewer taste.
+
+## Control-flow complexity and format ownership
+
+Evaluate whether independent execution paths make behavior, invalid states, security invariants, test coverage, or future changes hard to reason about. Where tooling provides cyclomatic or cognitive-complexity metrics, inspect them; otherwise estimate qualitatively from independent conditions, boolean operators, nesting, repeated guards, and state transitions. Do not introduce tooling or dependencies solely to obtain a number unless requested. Complexity is one signal alongside correctness, architecture, security, tests, performance, and maintainability—not a target number.
+
+Inspect especially protocol/token parsers (including conditional headers), authorization and permission state, concurrency/CAS and synchronization, retries/effect certainty and idempotency, lifecycle transitions, configuration state, recovery/tombstone/deletion flows, and other state machines for:
+
+- long boolean expressions or repeated conditions whose combinations form a decision matrix;
+- one function mixing classification, validation, policy, variant parsing, and domain-object construction;
+- implicit state-machine transitions, loosely related booleans, or duplicated parsing/validation logic; and
+- tests that cover lines or individual cases without mapping clearly to valid and invalid combinations.
+
+Do not flag branch count mechanically. Several obvious early-return guards, a short exhaustive switch over a discriminated union, and straightforward per-condition validation can be preferable to abstraction. For a closed protocol or state matrix, consider `classify -> exhaustive dispatch -> variant-specific handling`, or an equivalent explicit state-machine/decision table. Prefer discriminated unions and exhaustive switches when they make completeness and invalid states materially more visible; do not prescribe this shape when a few guards are simpler.
+
+Complexity alone is usually a non-blocking MINOR or review NOTE. Raise it to MAJOR when the structure materially increases the chance of an unreviewed correctness or security gap in authorization, destructive operations, concurrency/CAS, retries/idempotency, lifecycle/state transitions, recovery/deletion, or protocol acceptance. Do not use BLOCKER solely for complexity without a concrete correctness or security failure.
+
+A complexity finding must include the severity, exact function/file, why the paths increase reasoning risk, the mixed responsibilities, a concrete lower-complexity shape, whether behavior can remain unchanged, and tests that should protect the refactor. Explain the failure or audit scenario; never write only “too many if statements.” High coverage does not excuse a decision matrix when interactions remain hard to audit: ask whether tests map to its decisions and whether mutation testing could expose untested branch interactions. Conversely, do not demand refactoring when simple control flow and tests make completeness obvious.
+
+If a caller validates a structured identifier or protocol representation and then manually `slice`, `split`, or regexes that same representation, flag duplicated format knowledge when it can drift. Prefer one canonical parser/formatter pair at the owning layer (for example, ETags, encoded IDs, cursors, versioned envelopes, or protocol tokens); preserve behavior while moving extraction behind that owner.
 
 ## Severity and prioritization
 
