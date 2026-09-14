@@ -15,6 +15,30 @@ Use this after automated checks and an initial diff read. Apply each section in 
 
 Use Clean Architecture concepts pragmatically. A different intentional architecture is not a defect.
 
+## Repository-wide duplication and reuse
+
+Treat reuse as a correctness and ownership question, not a blanket DRY rule. For every changed or newly introduced protocol, business, storage, security, or lifecycle concept, search the whole repository—not just changed files—for:
+
+- the same and related function/helper names, type names, constants, and enum-like values;
+- literals, route strings, regexes, schemas, serialization formats, media types, and headers; and
+- error/status codes, storage prefixes, retry/CAS terms, and business-policy wording.
+
+Classify matches before recommending action:
+
+- **Textual duplication:** similar or identical code. Usually low severity unless it encodes one shared rule.
+- **Structural duplication:** different shapes implementing the same workflow or transformation. Investigate whether they can drift.
+- **Semantic duplication:** multiple owners of one business, protocol, security, storage, concurrency, or lifecycle invariant. This is the highest-value category.
+
+Ask whether the new code reuses an existing primitive or creates a second source of truth. Check for existing parsers/formatters, validators/schemas, route capability tables, policy services, ports, storage-key helpers, and error/status mappings before accepting a new helper, type, regex, or constant. Ask what layer should own the knowledge and whether callers are re-implementing it across architecture boundaries.
+
+Do not recommend an abstraction merely because code looks alike. Consolidation needs at least one of: one semantic rule, credible behavioral drift, security/data-safety significance, likely frequent change, or a clear architectural owner. Keep local duplication when values only coincide, a transformation is incidental, or callers intentionally have different policies. Do not report a finding solely to satisfy this checklist.
+
+A duplication finding must name exact duplicated locations, the semantic rule, how the copies can drift, the source-of-truth owner, what to reuse or centralize, what not to generalize, and tests for the consolidation and boundary behavior. Typical severity is MINOR or a review NOTE for low-drift duplication; use MAJOR for multiple owners of auth, protocol acceptance, destructive operations, CAS/concurrency, storage formats, routes/OpenAPI/CORS, lifecycle/recovery, retry, or idempotency; use BLOCKER only for a concrete correctness or security defect already caused by the copies.
+
+- [ ] New code reuses existing repository primitives where semantics match; it does not introduce parallel validators/parsers/helpers for an existing rule.
+- [ ] High-value semantic rules have one authoritative source of truth; routing, protocol formats, auth, storage layout, state transitions, and error mappings are not independently duplicated across layers.
+- [ ] Repository-wide search was performed for changed protocol/business concepts, not only diff-local inspection.
+
 ## Control-flow complexity and state
 
 Prefer clarity over stylistic purity. Treat cyclomatic complexity (independent paths), cognitive complexity (nesting and mental breaks), nesting depth, boolean-expression length, repeated guards, and implicit transitions as evidence to investigate—not automatic defects. Use configured metrics when available; otherwise reason qualitatively. Ask whether the paths make behavior exhaustive, invalid states visible, security invariants auditable, tests mappable to decisions, and later changes safe.
