@@ -30,13 +30,17 @@ Read every changed production, test, configuration, schema, generated, dependenc
 
 Follow callers, callees, shared contracts, types, schemas, persistence operations, and package boundaries far enough to validate the change. Do not review only the patch hunk when behavior depends on unchanged code.
 
+## 5a. Perform the repository-wide duplication and reuse audit
+
+For each changed or newly introduced protocol, business, storage, security, or lifecycle concept, search the repository—not only the diff—for existing helpers, types, schemas, constants, route strings, regexes, serialization formats, error/status codes, storage prefixes, and policy wording. Classify matches as textual, structural, or semantic duplication; identify the authoritative owner and existing primitive; and report only concrete drift, boundary, or reuse risks. Do not turn this step into a blanket DRY rule: preserve local code when semantics or policies intentionally differ.
+
 ## 6. Inspect affected tests
 
 Confirm the runner discovers the tests and that assertions establish the intended behavior, failures, edge cases, and side effects. Check whether mocks hide the relevant integration and whether test labels match their real scope. For lifecycle or concurrency paths, apply the semantic checklist's exact-interleaving guidance rather than accepting the presence of the same actors and operations as behavioral coverage.
 
 ## 7. Inspect architecture boundaries
 
-Check conceptual responsibilities, ownership, dependency direction, package exports, and transport/application/infrastructure separation according to the project's chosen architecture. Look for direct infrastructure use in handlers and private cross-package imports.
+Check conceptual responsibilities, ownership, dependency direction, package exports, and transport/application/infrastructure separation according to the project's chosen architecture. For layered, Clean, or Hexagonal designs, inspect imports and contracts across domain/core, application/use cases, ports, transport, infrastructure/adapters, and framework/composition. Confirm that inner layers do not import concrete outer concerns, that application-owned outbound ports describe use-case capabilities, and that infrastructure adapts to those ports. Inspect for storage/transport representations, SDK types, framework APIs, and adapter vocabulary leaking inward; do not flag an abstract persistence port merely because it concerns storage, and do not review by directory name alone.
 
 ## 8. Inspect data-safety and security implications
 

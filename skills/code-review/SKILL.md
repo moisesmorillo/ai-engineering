@@ -34,12 +34,91 @@ At minimum:
 - Prefer conceptual responsibility and clear ownership over arbitrary file or function size limits.
 - Preserve the project's intentional architecture; flag boundary erosion and accidental dependency direction, not pattern differences by themselves.
 - Prefer clear control flow: guard independent preconditions, use ordinary `if` for simple binary choices, and use exhaustive handling for closed states. Treat control-flow complexity as a correctness and auditability signal, not a branch-count style rule; apply the detailed control-flow checks below.
-- Give one semantic policy one authoritative source. Do not centralize unrelated literals merely because their text or value matches.
+- Give one semantic policy one authoritative source. Do not centralize unrelated literals merely because their text or value matches; apply the repository-wide duplication and reuse audit below rather than a blanket DRY rule.
 - Prefer typed or structured failures when supported. Never let an important failure silently become a successful empty result.
 - Prioritize data integrity, trust boundaries, and externally observable behavior over convenience or style.
 - Treat coverage as a regression signal, not proof of behavior quality.
 - For async work that crosses lifecycle boundaries, identify the relevant lifetimes and make each `busy`, `pending`, `inFlight`, `loaded`, or `active` guard belong to the lifetime of the invariant it protects. Do not assume teardown cancels host work; check that reload, re-enable, or retry cannot reset exclusion while non-cancellable work remains pending, and that stale completion cannot affect a newer lifetime. When operation ownership and presentation/session ownership differ, keep them separate. Apply the detailed lifecycle/interleaving checks in the semantic checklist.
 - Do not add dependencies, abstraction, functional-programming libraries, or type cleverness solely to satisfy reviewer taste.
+
+## Repository-wide duplication and reuse audit
+
+This is a semantic ownership audit, not a request to eliminate repeated text. Review the whole repository for missed reuse and independently editable owners of the same knowledge.
+
+### Classify the duplication
+
+- **Textual duplication:** similar or identical code, literals, or names. This is usually low severity unless the text encodes one shared rule.
+- **Structural duplication:** different code shapes implement the same workflow or transformation. It is important when the workflows can diverge, even if no lines match.
+- **Semantic duplication:** multiple locations encode the same business, protocol, security, storage, concurrency, or lifecycle invariant. This is the highest-value category.
+
+Examples of semantic duplication include route definitions repeated in router, CORS, and OpenAPI; ETag parsing repeated in transport and core; auth checks copied across handlers; storage-key construction repeated in adapters; status/error mapping implemented independently; lifecycle transitions copied between services; regexes defining one identifier format; and retry/CAS/effect-certainty logic implemented more than once.
+
+### Search repository-wide and identify ownership
+
+When a changed or newly introduced concept is found, search the repository—not only changed files or the PR diff—for:
+
+- function and helper names, related type names, constants, and enum-like values;
+- literals, route strings, regexes, schema definitions, serialization formats, media types, and headers;
+- error/status codes, storage prefixes, retry/CAS terms, and business-policy wording.
+
+Determine whether the change reuses an existing primitive or creates a second source of truth. Ask what should own the knowledge, whether an authoritative layer already exists, and whether callers are re-implementing knowledge that belongs to a parser, formatter, schema, port, policy service, route capability table, or storage-key helper. A new UUID validator, digest helper, path encoder, result/error type, or retry helper requires evidence that the existing primitive has different semantics.
+
+Raise a finding when one semantic rule has multiple independently editable owners and a future change to one copy can change behavior without changing the other. Prefer one canonical parser/formatter, route policy, schema/validator, business-policy service, storage-key helper, or error/status mapping owner. Do not centralize unrelated values merely because strings or shapes happen to match. If callers intentionally have different policies, preserve local implementations and explain the semantic distinction.
+
+### Abstraction threshold and finding requirements
+
+Do not recommend a shared abstraction merely because two blocks look alike. Recommend reuse or consolidation only when at least one is true:
+
+- the code represents one semantic rule;
+- independent copies can cause behavioral drift;
+- it is security- or data-safety-critical;
+- change frequency makes divergence likely; or
+- the abstraction has a clear architectural owner.
+
+Prefer local duplication over a misleading abstraction for coincidentally identical literals, tiny incidental transformations, or callers with intentionally different policies. Reuse guidance remains subordinate to correctness, clear ownership, and the project's architecture.
+
+Every duplication finding must include: (1) exact duplicated locations, including the existing owner or competing implementation; (2) the semantic rule being duplicated; (3) why the copies can drift; (4) the recommended owner/source of truth; (5) what should be reused or centralized; (6) what must not be generalized because semantics differ; and (7) tests that protect the consolidation and the relevant boundary behavior. Never create a finding solely to satisfy this audit.
+
+### Duplication severity
+
+Use demonstrated impact, not the amount of repeated code. A low-risk duplicated implementation is usually a review NOTE/NIT or MINOR. Multiple sources of truth for auth, protocol acceptance, destructive operations, CAS/concurrency, storage formats, routes/OpenAPI/CORS, recovery/lifecycle policy, retry, or idempotency are typically MAJOR. Use BLOCKER only when the duplication already produces a concrete correctness or security defect, such as one copy accepting data another rejects or a boundary being bypassed.
+
+## Dependency boundaries and architecture ownership
+
+For repositories using layered, Clean, Hexagonal, or ports-and-adapters architecture, verify dependency direction explicitly. Do not impose one of these architectures on a repository that has intentionally chosen another design, and do not treat every persistence, storage, or network reference as a violation.
+
+Inspect imports and semantic ownership across domain/core, application/use cases, outbound ports, transport, infrastructure/adapters, and framework/composition. Ask:
+
+- Which layer owns this type or interface, and which way does the import point?
+- Is an inner layer depending on an outer-layer implementation detail?
+- Is the abstraction expressed in application language or in the current adapter's language?
+- Could another adapter implement the port without awkward semantics?
+- Does the file's location agree with its meaning, or is a supposedly core type actually a transport/storage representation?
+
+The dependency rule is inward: application/domain/core may define the outbound ports they need, and infrastructure may implement those ports. It is correct for application to own an abstract persistence capability, for example:
+
+```ts
+interface ConditionalCurrentNoteRepository {
+  read(...): ...
+  create(...): ...
+}
+```
+
+The rule is **application defines what capability it needs; infrastructure adapts to it**. Do not flag a port merely because it concerns persistence. Flag the concrete dependency instead: core importing an adapter or framework module; a port exposing R2/S3/Postgres objects; application receiving storage ETags, bucket keys, or custom metadata; or methods shaped around an SDK/framework API rather than use-case needs.
+
+### Leakage heuristics
+
+Inspect inner-layer vocabulary even when imports point inward correctly. Terms such as `uploaded`, `bucket`, `object key`, `R2Object`, `customMetadata`, `wrangler`, `etag`, `Hono Context`, ORM/database rows, or filesystem-path semantics may make a port or application contract depend conceptually on one adapter. Ask whether the type would still make semantic sense if the adapter changed from R2 to Postgres, S3, or a filesystem. If not, raise a finding; prefer application language such as `committedAt`, `persistedAt`, `generation`, `revision`, or an opaque replacement capability when that names the actual invariant. Do not demand a rename when the term is genuinely storage-agnostic or when only style changes.
+
+Persisted and transport representations should remain at the boundary. Keep JSON envelope shapes, storage-format discriminators such as `format: 2`, bridge-format markers, raw object bodies, R2/custom metadata, bucket/object ETags, storage SDK responses, Zod persistence schemas, HTTP headers/statuses, Hono request/context types, Cloudflare Worker types, and framework exceptions in infrastructure or transport. Core/application should receive application-level observations, receipts, authoritative timestamps, revisions, or opaque CAS/replacement capabilities instead. Boundary code may depend inward; inner layers should not depend on framework APIs or use framework exceptions as application flow control.
+
+Review semantic ownership rather than folder purity. A type in `core/` is not automatically correct, and an adapter-private type in `infrastructure/` may legitimately reference application types. Cross-reference the reuse/source-of-truth audit when a leaked representation creates a second owner, and the protocol-format guidance when headers, ETags, or serialization rules cross the boundary.
+
+### Architecture finding quality and severity
+
+A dependency-boundary finding must include: (1) the inner-layer location; (2) the outer-layer concern leaking inward; (3) the dependency direction; (4) why it increases coupling or constrains adapters; (5) the recommended owner; (6) whether a port/DTO should move or be renamed; and (7) tests or type checks needed after the change. Avoid "violates Clean Architecture" without evidence.
+
+Use a review NOTE/NIT or MINOR for adapter-flavored vocabulary that does not create a concrete dependency. MAJOR is appropriate when application/core imports infrastructure or framework modules, core contracts expose concrete SDK types, business policy depends on transport/storage details, or persisted representations leak inward and constrain future adapters. Use BLOCKER only when the violation already causes a concrete correctness, security, or data-integrity failure.
 
 ## Control-flow complexity and format ownership
 

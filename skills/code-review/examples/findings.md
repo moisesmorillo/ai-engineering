@@ -236,20 +236,60 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 
 **Why the strong version is better:** It identifies the mismatched lifetimes, the harmful interleaving, the test's ordering gap, and a bounded direction that separates operation ownership from stale presentation.
 
-## 14. Correct but hard-to-audit conditional protocol parser
+## 14. Conditional request duplicates core ETag format knowledge
 
-**Severity:** MINOR (raise only if the structure creates a material acceptance or security risk)
+**Severity:** MAJOR
 
 **Bad finding wording**
 
-> Too many `if` statements in the conditional-request parser. Use a `switch`.
+> The conditional-request parser has too many `if` statements. Use a `switch`.
 
 **Strong finding wording**
 
-> **[MINOR] The conditional-request parser hides a protocol decision matrix behind otherwise readable guards**
-> **Location:** `apps/worker/src/http/conditional-request.ts:38-75`
-> **Why it matters:** The early returns avoid deep nesting and the current behavior may be correct, so branch count alone is not a defect. However, this one function classifies date and mixed-header conflicts, distinguishes missing conditions, applies the route-mode policy, validates `If-None-Match`, validates `If-Match`, and converts the ETag into a revision. The independent combinations make acceptance completeness and future variants harder to audit than the function's short length suggests.
-> **Evidence:** The outer conflict/missing checks, mode-dependent `If-None-Match` branch, ETag validation, and revision extraction form separate protocol decisions. The tests cover important examples but do not by themselves make the whole decision table apparent.
-> **Recommended direction:** Preserve behavior and consider `classify -> exhaustive dispatch -> focused variant parsers` (or an equivalent explicit decision table). Replace `createApplicationEtag(ifMatch)` followed by `ifMatch.slice(4, -1)` with the owning canonical ETag parser, `parseApplicationEtag`, so validation and extraction cannot drift. Add table-driven tests for every valid/invalid combination, including mode and mixed-condition interactions.
+> **[MAJOR] Transport re-implements core ETag extraction and hides a protocol decision matrix**
+> **Location:** `apps/worker/src/http/conditional-request.ts:38-75` and `apps/core/src/etag.ts:12-31`
+> **Why it matters:** The transport validates an `m3-<revision>` ETag and then manually slices it, while core already owns that format and its parser. The copies can drift so transport may extract a revision differently from the canonical validator. The early returns themselves are readable; the material defect is the second protocol-format owner, compounded by a decision matrix that makes future variants harder to audit.
+> **Evidence:** The outer conflict/missing checks, mode-dependent `If-None-Match` branch, ETag validation, and revision extraction form separate protocol decisions. `apps/core/src/etag.ts:12-31` already owns `parseApplicationEtag` and the `m3-<revision>` format, while this transport function manually slices the validated string. The tests cover important examples but do not by themselves make the whole decision table apparent.
+> **Recommended direction:** Preserve behavior and consider `classify -> exhaustive dispatch -> focused variant parsers` (or an equivalent explicit decision table). Reuse `apps/core/src/etag.ts:12-31` and replace `createApplicationEtag(ifMatch)` followed by `ifMatch.slice(4, -1)` with `parseApplicationEtag`, making core the single source of truth for validation and extraction. Do not introduce a generic header abstraction or centralize unrelated conditional-request policies. Add table-driven transport/core contract tests for every valid/invalid combination, including mode and mixed-condition interactions, and assert that the canonical parser rejects malformed revisions consistently.
 
-**Why the strong version is better:** It credits the simple early-return control flow, explains the correctness/auditability risk, gives a bounded decomposition, identifies duplicated format knowledge, and avoids treating `switch` or refactoring as an automatic requirement.
+**Why the strong version is better:** It identifies the exact transport/core duplication and drift risk, preserves the readable guards, and avoids treating `switch` or refactoring as an automatic requirement.
+
+## 15. CORS policy duplicates the public route surface
+
+**Severity:** MAJOR
+
+**Bad finding wording**
+
+> The CORS middleware has too many regexes. Replace the `if` with a `switch`.
+
+**Strong finding wording**
+
+> **[MAJOR] CORS independently defines a second public route and method policy**
+> **Location:** `apps/worker/src/http/v2-cors.middleware.ts:14-42`; related route owners: `apps/worker/src/http/routes/v2.ts:8-67` and `apps/worker/src/openapi/v2.ts:20-91`
+> **Why it matters:** The middleware's local route regexes and allowed-method lists describe which v2 endpoints are public, while Hono registration and OpenAPI already describe the deployed route surface. These independently editable copies can drift: a new route can be reachable but fail preflight, or an old method can remain allowed after runtime registration changes.
+> **Evidence:** `v2-cors.middleware.ts` matches `/v2/...` paths and enumerates methods separately from the Hono route definitions and OpenAPI operations. The same API capability is therefore represented by three owners, not merely repeated text.
+> **Recommended direction:** Make a typed route capability policy authoritative for route shape and allowed methods, then derive Hono registration metadata, CORS behavior, and OpenAPI operations from it (or use the repository's existing route-policy primitive). Do not replace `if` with `switch`, add a generic router abstraction, or centralize routes whose authorization or exposure policies intentionally differ. Add route-matrix tests covering every registered method/path and preflight, runtime, and generated-OpenAPI agreement, including an assertion that adding a route cannot silently omit its CORS policy.
+
+**Why the strong version is better:** It identifies the semantic public-API rule and all owners, explains the drift failure, recommends one typed policy rather than a cosmetic control-flow change, and preserves intentionally different route policies.
+
+## 16. Obsidian mirror port: correct dependency direction, possible vocabulary leakage
+
+**Review calibration:** Do not report a Clean/Hexagonal dependency violation for this structure:
+
+- `packages/core/src/mirror/conditional-current-note-repository.port.ts` owns `ConditionalCurrentNoteRepository`.
+- `packages/core/src/mirror/mirror-storage.types.ts` and `packages/core/src/mirror/current-generation-service.ts` expose application-level current-generation observations and opaque replacement/CAS capabilities.
+- `apps/worker/src/infrastructure/current-object.codec.ts` and `storage-object.codec.ts` implement or translate the core contracts.
+
+The dependency points inward: core defines the capability and the Worker adapter implements it. Persistence concerns in the port are not themselves a violation.
+
+**Possible finding, only if the names are coupled to the adapter:**
+
+> **[MINOR] Core port vocabulary reflects the current object-upload adapter**
+> **Location:** `packages/core/src/mirror/mirror-storage.types.ts:StoredLiveCurrentGeneration.uploaded`; translated by `apps/worker/src/infrastructure/current-object.codec.ts`
+> **Why it matters:** The core contract otherwise has correct dependency direction, but `uploaded` may describe an R2 object-write event rather than the application invariant the service needs: an authoritative storage-assigned commit timestamp. If the adapter changes to Postgres or another store, the name may force callers to preserve object-upload semantics that no longer exist.
+> **Evidence:** The core port owns the type and the Worker codec translates the stored representation, so this is vocabulary leakage—not core importing infrastructure. The surrounding `format: 2`, Zod persisted-envelope schemas, `bridgeFormat`, raw storage bytes, R2/custom metadata, and storage ETags remain infrastructure concerns and should not appear in these core types.
+> **Recommended direction:** Consider naming the application-level concept `committedAt` or `persistedAt`, keeping `uploaded` translation inside the adapter. No port or dependency inversion is required if the field's actual invariant is already storage-agnostic. Add core contract tests for the timestamp/generation invariant and adapter tests for the codec translation; run type checks to verify no persisted representation crossed inward.
+
+**Do not manufacture a finding:** `StoredLiveCurrentGeneration`, `StoredTombstoneCurrentGeneration`, or persistence-oriented port names are not automatically wrong. Report a stronger **MAJOR** finding only if core imports `R2Object`, exposes bucket keys/custom metadata/storage ETags, depends on `format: 2` or raw envelope shapes, or otherwise imports/embeds Worker adapter semantics. In that case, move an application-owned observation/port DTO into core and translate the SDK/persisted representation in infrastructure.
+
+**Why the strong version is better:** It distinguishes correct dependency inversion from optional vocabulary refinement, identifies the exact owner and translation boundary, and reserves a major finding for concrete infrastructure or representation leakage.
