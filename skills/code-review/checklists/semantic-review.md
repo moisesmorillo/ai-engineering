@@ -29,6 +29,16 @@ Prefer clarity over stylistic purity.
 - Do not remove readable conditionals merely to look functional, and do not add an FP library solely to eliminate them.
 - Prefer compile-time exhaustiveness. Do not add artificial unreachable runtime branches only to appease a pattern or coverage tool.
 
+## Lifecycle and concurrency state ownership
+
+For code with async work, background work, retries, unload/reload, enable/disable, or other lifecycle transitions, identify each relevant lifetime explicitly (for example, operation, session/component, plugin, or process). For every `busy`, `pending`, `inFlight`, `loaded`, `active`, or similar guard, ask: **what lifetime owns this state, and what happens if that lifetime ends before the operation it guards?** Then verify:
+
+- the guard belongs to the lifetime of the invariant it protects, rather than merely the nearest object or session;
+- teardown, reload, re-enable, and retry cannot reset exclusion while non-cancellable work is still pending;
+- cancellation is assumed only when the host API explicitly guarantees it;
+- stale completion cannot mutate or present through a newer lifetime; and
+- operation exclusion is separate from presentation/session identity when those concerns have different lifetimes.
+
 ## Semantic sources of truth
 
 Check protocol values, statuses, error codes, route paths, media types, headers, limits, algorithms, state names, permission names, and enum-like strings.
@@ -116,6 +126,8 @@ Review documentation quality, not mere presence.
   - **E2E:** real externally meaningful boundaries or a true end-to-end path.
 - Are test files included by the actual runner configuration, or merely present on disk?
 - Does test placement follow the repository's established organization?
+- For lifecycle or concurrency behavior, reproduce the harmful interleaving, not merely the same operations in a safe order. Keep the original operation pending while triggering the competing action or lifecycle transition; assert that the competing operation does not start, that stale completion cannot affect the new lifetime, and that normal operation resumes only after the original work settles.
+- Read the ordering of awaits, resolve/reject calls, teardown, and re-enable closely. Confirm the test reaches the failure state before its assertion boundary; do not infer behavioral coverage from a nearby test name or high branch coverage.
 
 A dedicated `tests/` tree can improve navigation, but it is not a universal requirement. Prefer TDD when the project expects it, while reviewing the resulting behavior rather than trying to police commit chronology.
 

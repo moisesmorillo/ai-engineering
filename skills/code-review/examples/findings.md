@@ -217,3 +217,21 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 > **Recommended direction:** Document the unit, zero behavior, and whether the timeout covers retries as part of the exported contract.
 
 **Why the strong version is better:** It evaluates documentation usefulness and identifies the missing invariants instead of rewarding mere comment presence.
+
+## 13. Session guard resets while non-cancellable work survives teardown
+
+**Severity:** MAJOR
+
+**Bad finding wording**
+
+> The reload logic has a race condition.
+
+**Strong finding wording**
+
+> **[MAJOR] Re-enable resets the only exclusion guard while the old inspection is still pending**
+> **Location:** `src/inspections/controller.ts:41-78`
+> **Why it matters:** `busy` belongs to the enable-session object, but the host inspection call is non-cancellable and can outlive unload. Re-enabling creates a fresh session with `busy = false`, so a second inspection starts concurrently even though the operation contract allows only one at a time.
+> **Evidence:** Unload discards the session without settling the pending host promise; re-enable constructs a new session before the first promise resolves. The nearby test resolves that promise before invoking the new command, so it exercises a safe order rather than the overlap.
+> **Recommended direction:** Keep operation exclusion owned by the longer-lived operation owner, while keeping presentation/session identity separate so stale completion cannot update the new session. Leave the first promise pending during unload and re-enable, assert that the second operation does not start, then settle the first operation and verify normal operation resumes.
+
+**Why the strong version is better:** It identifies the mismatched lifetimes, the harmful interleaving, the test's ordering gap, and a bounded direction that separates operation ownership from stale presentation.

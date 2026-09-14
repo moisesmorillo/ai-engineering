@@ -32,7 +32,7 @@ Follow callers, callees, shared contracts, types, schemas, persistence operation
 
 ## 6. Inspect affected tests
 
-Confirm the runner discovers the tests and that assertions establish the intended behavior, failures, edge cases, and side effects. Check whether mocks hide the relevant integration and whether test labels match their real scope.
+Confirm the runner discovers the tests and that assertions establish the intended behavior, failures, edge cases, and side effects. Check whether mocks hide the relevant integration and whether test labels match their real scope. For lifecycle or concurrency paths, apply the semantic checklist's exact-interleaving guidance rather than accepting the presence of the same actors and operations as behavioral coverage.
 
 ## 7. Inspect architecture boundaries
 
@@ -48,6 +48,8 @@ Treat a credible silent-data-loss race or security-boundary failure as blocking 
 
 Review available compiler, linter, formatter, IDE/editor, framework, generated API/schema, and deprecation diagnostics. Determine whether CI exercises the relevant configuration and type-aware modes. Do not assume a successful build reveals all useful warnings.
 
+When bundling, code generation, framework transformation, packaging, compilation, or runtime adaptation could change the reviewed behavior, verify the important invariant against the generated or runtime artifact in addition to source-level tests where practical. Keep this proportional to risk and repository conventions; artifact testing is not a universal requirement.
+
 ## 10. Inspect coverage changes
 
 Review lines, statements, functions, and branches where available. Check source inclusion, exclusions, new uncovered files, risk-sensitive gaps, and threshold changes. Coverage is evidence of execution, not proof of good assertions.
@@ -62,7 +64,7 @@ Use the severity model in [`../SKILL.md`](../SKILL.md). Each finding must includ
 
 ## 13. Re-review after fixes
 
-Inspect the new diff and rerun or re-check the relevant validation. Fixes can introduce regressions, alter contracts, or address only the visible symptom.
+Inspect the new diff and rerun or re-check the relevant validation. Fixes can introduce regressions, alter contracts, or address only the visible symptom. For lifecycle or concurrency fixes, verify not only that the original scenario now passes but also that state and responsibility moved to the correct lifetime and layer, the fix is not merely another flag in the wrong abstraction, no stale-state or reset regression was introduced, the invariant is owned by the narrowest correct layer, and the tests reproduce the exact original failure interleaving.
 
 For every prior finding, record exactly one status:
 
