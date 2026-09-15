@@ -13,6 +13,7 @@ Apply this profile in addition to the language-agnostic core. First inspect the 
 - Give duplicated union literals and shared enum-like values one authoritative exported type/value definition when they represent one policy.
 - Type protocol statuses, headers, media types, and error codes strongly enough to prevent drift without making simple code opaque.
 - Model closed states with discriminated unions where that prevents invalid boolean combinations or enables exhaustive handling.
+- For a closed union, classify or narrow its discriminant once at the semantic owner when practical. Repeated checks of the same tag across distant validator branches or callers can hide an omitted variant or duplicate policy; prefer exhaustive dispatch when it materially exposes completeness, but do not replace every readable local `if` with a `switch`.
 - Verify type guards actually prove their predicate and do not rely on unchecked shape assumptions.
 
 Do not demand advanced conditional types, branded types, or generic abstractions unless their safety benefit outweighs their cognitive cost.

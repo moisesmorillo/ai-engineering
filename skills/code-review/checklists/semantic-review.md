@@ -69,18 +69,33 @@ A duplication finding must name exact duplicated locations, the semantic rule, h
 
 Prefer clarity over stylistic purity. Treat cyclomatic complexity (independent paths), cognitive complexity (nesting and mental breaks), nesting depth, boolean-expression length, repeated guards, and implicit transitions as evidence to investigate—not automatic defects. Use configured metrics when available; otherwise reason qualitatively. Ask whether the paths make behavior exhaustive, invalid states visible, security invariants auditable, tests mappable to decisions, and later changes safe.
 
+Inspect validators, consistency checkers, protocol classifiers, lifecycle code, and state machines for hidden decision-matrix complexity even when nesting is shallow and every individual guard is simple:
+
+- Does one function own multiple independent invariant families?
+- Is the same discriminant inspected repeatedly across separate branches?
+- Are mutually exclusive closed variants handled through negative checks, priority, fallthrough, or a catch-all path instead of explicit exhaustive handling?
+- Do several conditions collectively encode a business or state/action compatibility table?
+- Are global constraints mixed with per-entity, per-item, or per-path invariants?
+- Must the reader reconstruct the valid matrix mentally to decide whether a new state or action is covered?
+- Would adding a variant require edits in several distant branches that are easy to miss?
+- Does a boolean collapse materially different invalid states before a caller, test, migration, log, or operator can use the reason?
+
+Prefer a finding when those properties materially reduce change safety or auditability, especially in security-, data-safety-, protocol-, recovery-, or lifecycle-critical code. Prefer no finding when guards form a short linear precondition list, conditions belong to one semantic rule, an exhaustive representation would be more verbose without making policy clearer, or extraction would only fragment readable local logic.
+
 - Replace excessive nesting with guard clauses when branches are independent preconditions.
 - Keep an ordinary `if` when the decision is simple and binary; several short, obvious early returns may be the clearest implementation.
-- For closed or discriminated states, prefer an exhaustive `switch` or idiomatic pattern matching when it makes coverage and invalid states obvious.
-- Look for one function mixing classification, combination/conflict validation, policy, variant parsing, and domain construction; hidden state-machine transitions; loosely related booleans that permit invalid combinations; and duplicated parsing/validation logic.
-- When a closed protocol/state matrix has materially difficult combinations, consider `classify -> exhaustive dispatch -> variant-specific handling`, or an explicit decision table/state-machine equivalent. Do not impose this shape where a few guards are simpler.
-- For multi-step fallible pipelines, consider explicit typed result/state flow when it makes transitions and failures clearer.
+- Decompose by semantic invariant ownership—not one helper per branch. Separate global consistency from per-entity validation when their scopes differ, and group related rules under names such as lifecycle, identifier uniqueness, handoff, unresolved mutation, or desired state.
+- For closed or discriminated states, classify once and prefer exhaustive dispatch when it makes coverage and invalid states obvious. A `switch`, typed map/table, classifier, or idiomatic pattern match may be appropriate; none is mandatory.
+- When a closed protocol/state matrix has materially difficult combinations, consider `classify -> exhaustive dispatch -> focused variant validation`, or an explicit decision table/state-machine equivalent. Do not impose this shape where a few guards are simpler.
+- For multi-step fallible pipelines, consider explicit typed result/state flow when it makes transitions and failures clearer. For validators, use a diagnostic result only when failure identity materially improves diagnosis, tests, operations, or migrations; a public boolean facade may remain, and trivial predicates should stay boolean.
 - Question unconditional or infinite loops when a cursor, work item, or termination condition is already explicit.
-- Do not remove readable conditionals merely to look functional, prescribe a switch for its own sake, or add an FP library solely to eliminate them. Prefer compile-time exhaustiveness; do not add artificial unreachable runtime branches only to appease a pattern or coverage tool.
+- Do not remove readable conditionals merely to look functional, prescribe a switch for its own sake, add an FP library, introduce a generic validation framework, or abstract solely to eliminate branches. Prefer compile-time exhaustiveness; do not add artificial unreachable runtime branches only to appease a pattern or coverage tool.
 
-Raise a complexity concern from a MINOR/non-blocking note to MAJOR only when it materially increases correctness risk in authorization, destructive operations, concurrency/CAS, retries/idempotency, lifecycle/state transitions, recovery/deletion flows, or protocol acceptance. Complexity alone is not a BLOCKER. A finding must name the exact function/file, explain the decision matrix and why it matters, identify mixed responsibilities, propose a lower-complexity shape, say whether behavior can remain unchanged, and name regression tests. High coverage does not automatically excuse hard-to-audit branch interactions: check whether tests map to decisions and whether mutation testing could expose gaps. Conversely, do not manufacture a finding when control flow and tests make completeness obvious.
+Use NOTE/NIT for local readability without meaningful drift risk; MINOR when a hidden matrix or mixed invariant ownership makes future changes error-prone but current behavior appears correct; MAJOR when implicit handling creates a credible correctness, safety, security, lifecycle, protocol, or drift risk; and BLOCKER only for a concrete severe defect, never complexity alone. A finding must name the exact function/file, explain the decision matrix and why it matters, identify mixed responsibilities, propose a lower-complexity shape, say whether behavior can remain unchanged, and name regression tests. High coverage does not automatically excuse hard-to-audit branch interactions: check whether tests map to decisions, including valid rows and invalid cross-products, and whether mutation testing could expose gaps. Conversely, do not manufacture a finding when control flow and tests make completeness obvious.
 
-- [ ] Control flow is auditable: high-risk parsers/state machines/auth/concurrency code does not hide a large decision matrix inside ad-hoc branching; closed states and exhaustive dispatch are used where they materially reduce reasoning complexity.
+- [ ] Control flow is auditable: high-risk validators/parsers/state machines/auth/concurrency code does not hide a decision matrix inside ad-hoc branching; closed states and exhaustive dispatch are used where they materially reduce reasoning complexity.
+- [ ] Validator tests map to semantic invariant families and compatibility rows rather than merely executing branches or isolated examples.
+- [ ] Diagnostic detail is preserved only as far as it has a concrete correctness, testing, migration, debugging, or operational consumer; trivial predicates are not burdened with result machinery.
 
 ## Lifecycle and concurrency state ownership
 
