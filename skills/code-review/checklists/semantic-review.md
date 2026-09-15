@@ -21,6 +21,28 @@ User-provided focus is additive, not a substitute for these autonomously discove
 
 Use Clean Architecture concepts pragmatically. A different intentional architecture is not a defect.
 
+## Module cohesion and exported contract placement
+
+Audit module/file responsibility separately from dependency direction. For every structural candidate selected by discovery, complete a concise responsibility inventory before deciding whether there is a finding. A technically valid adapter dependency can still be a poor semantic owner when it combines independently evolving contracts, concrete implementation, request construction, authentication, admission/dispatch, abort or timeout lifecycle, streaming, protocol decoding/classification, DTO/domain conversion, acknowledgement validation, effect/retry policy, routes, persistence, or logging. File length, method count, and number of exports only identify where to look; they are not findings.
+
+Ask:
+
+- What single reason should this module change, and how many unrelated concepts must a reviewer hold at once?
+- Are transport mechanics mixed with protocol or business policy? Are DTO mapping, classification, lifecycle, and orchestration all colocated?
+- Can one responsibility evolve or be understood/tested independently of the others?
+- Do helpers form distinct semantic clusters, multiple policy centers, or a likely future god module?
+- Does the module export both reusable contracts and a concrete implementation, and are consumers forced to import implementation to consume an independently owned contract?
+- Which responsibilities are mechanics versus policy, which have different architectural owners, which could change independently, and which need different tests?
+- Which public/exported contracts have a separate import/use lifecycle, and which knowledge or literal family is already owned elsewhere?
+
+Prefer cohesive modules with clear owners, and decompose by real semantic responsibility rather than an imposed directory layout or size target. A large grammar/parser may be cohesive; a smaller adapter owning several independent policies may warrant a finding. Keep colocated private/local types where that aids readability, and do not move an interface solely because it is beside a class.
+
+Raise a cohesion finding only when the mixed responsibilities create a concrete navigation, review, testing, policy-drift, safety, or correctness risk. Name the file, responsibilities, independently evolving evidence, proposed semantic boundaries, what should remain together, whether behavior can remain unchanged, and tests that protect the refactor. Use NOTE/NIT for a cohesive or merely navigational concern; MINOR for material maintainability/auditability loss with sound current behavior; MAJOR only when mixed protocol, lifecycle, security, or safety policy creates credible drift/correctness risk; never make cohesion alone a BLOCKER.
+
+- [ ] Changed modules have a coherent semantic owner; metrics were used only to choose inspection targets.
+- [ ] Reusable exported contracts are placed at their architectural owner or intentionally colocated; consumers need not import implementation merely to consume a separately owned contract.
+- [ ] Proposed decomposition, if any, preserves cohesive groups and gives policy areas independently testable boundaries without demanding private-helper tests.
+
 ## Dependency boundaries and semantic ownership
 
 When the repository uses layered, Clean, Hexagonal, or ports-and-adapters architecture, verify dependency direction explicitly across domain/core, application/use cases, outbound ports, transport, infrastructure/adapters, and framework/composition. Inspect imports and contracts, not just directories. Ask which layer owns each type, which way the dependency points, whether the abstraction is expressed in application language, and whether a different adapter could implement it without awkward semantics.
@@ -52,8 +74,10 @@ A type in `core/` is not automatically correctly owned, and an adapter-private t
 Treat reuse as a correctness and ownership question, not a blanket DRY rule. For every changed or newly introduced protocol, business, storage, security, or lifecycle concept, search the whole repository—not just changed files—for:
 
 - the same and related function/helper names, type names, constants, and enum-like values;
-- literals, route strings, regexes, schemas, serialization formats, media types, and headers; and
-- error/status codes, storage prefixes, retry/CAS terms, and business-policy wording.
+- literals, route strings/fragments, query names, regexes, schemas, serialization formats, HTTP methods, media types, headers, protocol/version markers, lifecycle/event names, and operation/action strings; and
+- error/status codes, storage prefixes, retry limits, timeout values, retry/CAS terms, and business-policy wording.
+
+Treat protocol-sensitive literals as ownership clues. A one-off local `"GET"`, `0`/`1`, a simple index, or a trivial internal label normally does not need a constant. Search repository-wide before claiming a literal should be centralized. Prefer a finding when it is shared protocol policy, must synchronize with server/client/docs/OpenAPI, participates in a decision matrix, already has an owner, affects security/data safety, or has non-obvious semantics. Reuse the owner if it exists; if several sites encode one rule without one, recommend a focused owner rather than a `constants.ts` dumping ground.
 
 Classify matches before recommending action:
 
@@ -113,18 +137,22 @@ For code with async work, background work, retries, unload/reload, enable/disabl
 - stale completion cannot mutate or present through a newer lifetime; and
 - operation exclusion is separate from presentation/session identity when those concerns have different lifetimes.
 
-## Semantic sources of truth
+## Semantic sources of truth and decision tables
 
-Check protocol values, statuses, error codes, route paths, media types, headers, limits, algorithms, state names, permission names, and enum-like strings.
+Check protocol values, statuses, error codes, route paths, media types, headers, limits, algorithms, state names, permission names, and enum-like strings. For a protocol-heavy structural candidate, inventory methods, statuses, headers, media types, route fragments, action strings, and protocol markers as related families before searching repository-wide for owners; do not turn each literal into a separate style finding.
 
 - Does one semantic policy have one authoritative definition?
-- Can copies drift independently across runtime behavior, schemas, tests, and generated clients?
-- Is a local literal correctly local, or does it encode a shared contract?
+- Can copies drift independently across runtime behavior, schemas, tests, generated clients, server routes, and OpenAPI?
+- Is a local literal correctly local, or does it encode a shared contract already represented by a constant, schema, formatter/parser, enum/discriminated union, route policy, or status classifier?
 - Are unrelated literals being centralized only because they happen to share a value?
+- Do mappings such as `status -> protocol failure -> application failure -> effect certainty/retryability`, or `method + route + status -> behavior`, form one policy matrix split across independently editable functions?
+
+For a suspected status/effect/retry matrix, follow the call chain across helpers—such as status to failure kind, failure kind to effect certainty/retryability, and action to expected status—rather than judging one function at a time. First decide whether layers intentionally own different semantics. If they do, preserve that separation and explain the distinction in the review. If they encode one policy, prefer one canonical classifier, explicit decision table, `classify -> exhaustive dispatch`, or an equivalent auditable representation. The issue is not that several functions exist; it is that a new status/method can require uncoordinated edits whose relationship is hidden. Table-test material rows where valuable.
 
 Centralize meaning, not coincidental spelling.
 
 - [ ] Structured protocol formats have a canonical parser/formatter; callers do not validate a representation and then manually slice, split, or regex that same representation.
+- [ ] Status/method/route/failure/effect/retry mappings were traced sufficiently to distinguish one hidden policy table from intentional layered ownership.
 
 ## Errors and failure behavior
 
@@ -180,13 +208,17 @@ Scale expectations to operational needs and repository conventions.
 
 ## Documentation
 
-Review documentation quality, not mere presence.
+Review documentation quality, not mere presence. For selected candidate public APIs and lifecycle/concurrency helpers, explicitly assess ownership, cancellation, settlement, effect certainty, resource release, security semantics, and caller obligations at the authoritative abstraction. Do not require docstrings for every function or method, and do not reward AI-generated narration.
 
-- When required by project conventions, do public/exported APIs explain their purpose and contract?
-- For non-obvious behavior, are invariants, units, side effects, failures, security implications, and lifecycle expectations documented as relevant?
+- Is the authoritative public/exported abstraction documented when callers need non-obvious invariants, side effects, security semantics, ownership/lifecycle, concurrency behavior, failure/effect semantics, resource-release requirements, or caller obligations?
+- Can a caller understand important failure and lifecycle behavior without reading the implementation?
+- For implementation methods satisfying a well-documented interface, would duplicated boilerplate TSDoc add anything?
+- Are surprising semantics documented at the contract owner rather than repeated across interface and implementation?
 - Do comments explain why rather than restate what the syntax already says?
 - Are comments stale, misleading, or written as implementation-history/AI narrative rather than durable guidance?
 - Is obvious trivial code being burdened with unnecessary documentation?
+
+Good documentation explains contracts and invariants. `/** Reads a note. */ readNote(...)` is narration, not useful documentation.
 
 ## Tests and test organization
 
@@ -196,6 +228,7 @@ Review documentation quality, not mere presence.
 - Are assertions brittle white-box checks rather than contract checks?
 - Do tests only verify mocks, or do they establish the behavior and side effects that matter?
 - Are mutations, emitted events, persistence, cleanup, and other side effects asserted?
+- Where a module mixes policy areas or is being decomposed, can status/effect mappings, DTO mappers, lifecycle rules, and other meaningful boundaries be tested independently? Would extraction reduce giant-test coupling? Do not require direct tests of private helpers when observable tests are clearer.
 - Are test suites labeled accurately?
   - **unit:** isolated behavior;
   - **integration:** intentional composition of multiple layers/components;

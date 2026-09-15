@@ -26,6 +26,7 @@ Do not demand advanced conditional types, branded types, or generic abstractions
 - Flag relative imports that escape into another project/package and bypass its API.
 - Check for new circular dependencies, especially cycles hidden by type/value import confusion or barrel exports.
 - Confirm ESM/CommonJS and file-extension choices match the target build and runtime.
+- For exported interfaces, types, ports, and protocol constants, audit semantic ownership and import ergonomics: do not move a contract solely because it shares a file with its implementation, but flag a separately reused or architecturally distinct contract when consumers must import concrete infrastructure to consume it, implementation details leak into the public surface, or placement creates a circular/awkward dependency. Preserve colocated private/local types when clearer.
 
 ## Hono and Cloudflare Workers
 
@@ -53,10 +54,11 @@ These are framework-specific checks, not universal TypeScript policy.
 
 Where the project uses TSDoc:
 
-- exported/public declarations should document useful purpose and contract;
+- document a public/exported declaration at its authoritative abstraction when callers need non-obvious invariants, units, side effects, security semantics, ownership/lifecycle, concurrency behavior, failure/effect semantics, resource-release requirements, or obligations;
 - nontrivial internal contracts should explain invariants or lifecycle expectations when not evident from types;
 - type-only declarations should explain units, meaning, valid combinations, or security implications when non-obvious;
-- `@throws`, side effects, mutation, nullability, and async lifecycle should be documented when they are part of the caller contract.
+- `@throws`, side effects, mutation, nullability, and async lifecycle should be documented when they are part of the caller contract; and
+- do not duplicate boilerplate on an implementation method that satisfies an already well-documented interface unless implementation-specific semantics differ.
 
 Do not require TSDoc universally when the repository uses another documented convention, and do not request comments that only restate names or types.
 

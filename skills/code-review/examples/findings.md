@@ -313,3 +313,102 @@ The dependency points inward: core defines the capability and the Worker adapter
 A diagnostic validator can be a separate, optional improvement when corrupt-state diagnosis, tests, operations, or migrations need the exact failed invariant. A boolean facade may remain public. Do not require a diagnostic result solely for elegance, create one helper per guard, prescribe `switch` everywhere, or introduce a generic validation abstraction.
 
 **Why the strong version is better:** It identifies the independent invariant families and the future variant-drift risk rather than scoring branch count. It proposes semantic decomposition and selective exhaustive handling, acknowledges that current behavior appears correct, and calibrates severity accordingly.
+
+## 18. Large but cohesive grammar has no size finding
+
+**Expected:** No finding based only on line count.
+
+A generated 1200-line parser or hand-maintained grammar engine may contain many productions, tokens, and local parsing helpers while still owning one coherent grammar and evolving with that grammar. Review generated-file conventions, parser correctness, and grammar tests as applicable, but do not demand splitting merely to cross an arbitrary file-size threshold.
+
+**Why this matters:** File size is a signal to inspect semantic cohesion—not a style metric or finding by itself.
+
+## 19. Transport god module mixes independently evolving policy
+
+**Severity:** MINOR when current behavior is sound; MAJOR when the mixed owners create credible protocol, lifecycle, security, or safety drift.
+
+**Bad finding wording**
+
+> This Fetch adapter is over 1000 lines. Split it up.
+
+**Strong finding wording**
+
+> **[MAJOR] The remote adapter is the independently editable owner of transport, effect, and lifecycle policy**
+> **Location:** `src/remote/fetch-remote-bridge.ts:1-1086`
+> **Why it matters:** The file exports dependency interfaces, implements the bridge, builds requests, reads `SecretStorage`, admits requests, owns `AbortController`/timeout and bounded-body lifecycle, decodes responses, maps DTOs, validates acknowledgements, classifies statuses and mutation-effect certainty, and defines protocol literals. A change to an acknowledgement status, retry/effect rule, or cancellation lifetime requires navigating unrelated streaming/auth/mapping code, and the status/effect policy can drift across separate helpers without an auditable matrix.
+> **Evidence:** Request construction and secret lookup change with transport/auth concerns; DTO mapping changes with the remote representation; status/effect/retry mappings change with protocol safety policy; and abort/settlement changes with operation lifetime. Each can be understood and tested independently, but current tests construct the whole bridge to exercise a status row. Current behavior appears sound.
+> **Recommended direction:** Preserve cohesive request dispatch and its immediate transport mechanics, but give independently owned protocol classification/effect policy, DTO translation, and reusable dependency contracts boundaries appropriate to their existing architectural owners. Keep behavior unchanged during a structural refactor, avoid prescribing a fixed directory tree, and add focused table tests for status/effect rows plus mapper and lifecycle boundary tests.
+
+**Why the strong version is better:** It names independent responsibilities, their different evolution paths, the audit/drift risk, what should remain together, a behavior-preserving scope, and tests. It does not make line count the defect.
+
+## 20. A harmless local literal is not a magic-constant finding
+
+**Expected:** No finding.
+
+A single local `"GET"` used by one request path with no shared method policy, plus ordinary local `0`, `1`, and array indices, normally needs no extraction. Do not create constants to eliminate every string or number.
+
+**Why this matters:** Literal ownership concerns semantic policy, synchronization, and drift—not visual repetition.
+
+## 21. Duplicated protocol literals have competing owners
+
+**Severity:** MAJOR when the duplicates define one externally observable policy.
+
+**Bad finding wording**
+
+> Replace 401, `Authorization`, and `POST` with constants.
+
+**Strong finding wording**
+
+> **[MAJOR] Server, OpenAPI, CORS, and client independently encode the same authenticated mutation policy**
+> **Location:** `src/http/router.ts:31-66`, `openapi/documents.ts:18-57`, `src/http/cors.ts:12-29`, and `src/client/classify.ts:40-72`
+> **Why it matters:** Method, header, and refusal-status literals jointly describe one public protocol rule. Adding a refusal status or changing the accepted method can update the server while leaving preflight, published API, or client classification stale, causing rejected requests or misclassified effects.
+> **Evidence:** Repository search finds the same route fragment, `Authorization` header, method, and auth/precondition statuses represented in each location. The values must stay synchronized with the public contract; this is semantic duplication, not a request to centralize all strings.
+> **Recommended direction:** Reuse the existing protocol/route owner if one exists; otherwise establish a focused capability or protocol definition from which runtime, OpenAPI, CORS, and client classification can derive their respective concerns. Keep intentionally distinct authorization policies local and add agreement tests across runtime, schema, preflight, and client behavior.
+
+**Why the strong version is better:** It identifies the shared external contract and drift scenario rather than treating individual literals as style violations.
+
+## 22. Split status/effect/retry helpers may hide one decision matrix
+
+**Severity:** MINOR or MAJOR according to demonstrated drift/safety risk.
+
+**Bad finding wording**
+
+> Combine these three functions.
+
+**Strong finding wording**
+
+> **[MINOR] Status failure, effect certainty, and retryability form one unauditable mutation policy**
+> **Location:** `src/client/status-failure.ts:12-35`, `src/client/effect-certainty.ts:8-28`, and `src/client/retry.ts:15-36`
+> **Why it matters:** The first helper maps HTTP status to failure kind, the second maps that kind to whether a mutation may have taken effect, and the third decides retryability. For this client all three mappings are changed when the server adds a status, yet their relationship is hidden across independently editable functions. A new ambiguous status can be classified as safe-to-retry without an explicit effect decision.
+> **Evidence:** The same failure union is the only input to both later helpers, and protocol tests enumerate statuses only at the first helper. This appears to be one policy table rather than intentionally separate transport and application semantics.
+> **Recommended direction:** Make the relationship auditable with a canonical classifier, an explicit table, `classify -> exhaustive dispatch`, or an equivalent structure; behavior need not change. If separate layers intentionally own the mappings, retain them and document/test the distinction instead. Add table-driven assertions for status, failure, effect certainty, and retry rows.
+
+**Why the strong version is better:** It first establishes that the mappings are one policy, describes the drift scenario, and allows intentional layering.
+
+## 23. Useful TSDoc documents a surprising public contract
+
+**Severity:** MINOR when callers cannot infer the contract from types and behavior.
+
+**Bad finding wording**
+
+> Add TSDoc to every method.
+
+**Strong finding wording**
+
+> **[MINOR] The public send contract omits abort, settlement, and effect semantics callers must coordinate**
+> **Location:** `src/remote/remote-bridge.ts:14-28`
+> **Why it matters:** `sendMutation` accepts an abort signal but the implementation may settle after the request reached the remote service; callers must release a resource and reconcile an `effect: "unknown"` result rather than assume cancellation prevented mutation. Neither the type nor name expresses those lifecycle and safety obligations.
+> **Evidence:** The implementation documents neither abort ownership nor post-dispatch settlement, while callers dispose resources immediately after `AbortError`. This is a public contract concern, not a request to narrate implementation.
+> **Recommended direction:** Document the authoritative interface with abort ownership, settlement/effect semantics, and caller resource obligations. Do not duplicate boilerplate on implementation methods that simply satisfy that interface, and do not add TSDoc to trivial private mappers.
+
+**Why the strong version is better:** It asks for durable caller-facing contract documentation and explicitly excludes redundant commentary.
+
+## 24. Structural candidate assessment prevents a silent pass
+
+**Expected:** A high-signal candidate is visibly assessed even when not every dimension becomes a finding.
+
+> **Structural candidate assessment:** `src/remote/fetch-remote-bridge.ts`
+> **Selection signals:** protocol-heavy adapter; exported contracts and concrete implementation; request/auth/lifecycle/streaming/mapping/classification helpers; external-contract literals.
+> **Responsibility inventory:** transport dispatch and request construction are mechanics; status/failure/effect/retry classification is protocol policy; DTO translation is boundary mapping; abort/settlement is operation lifecycle; exported bridge contracts may have an independent import lifecycle.
+> **Assessment:** Inspect cohesion, exported contract placement, the status/failure/effect/retry call chain, protocol literal family owners, and public/lifecycle contract documentation. A final review may conclude some dimensions are intentionally colocated or separately owned, but it must state that evidence rather than silently omitting them.
+
+**Why this matters:** Candidate signals trigger semantic investigation, not a metric finding. The same assessment can conclude that a 1200-line grammar/parser is cohesive and has no actionable finding.
