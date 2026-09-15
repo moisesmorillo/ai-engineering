@@ -2,6 +2,12 @@
 
 Use this after automated checks and an initial diff read. Apply each section in proportion to the change's risk and the target repository's documented design. This is a prompt for investigation, not a mandate to report one finding per section.
 
+## Review Brief integration
+
+Use the internal Review Brief derived by [`review-discovery.md`](review-discovery.md) as the evidence map for this pass. Test candidate findings against its current-slice acceptance criteria, governing contracts, explicit invariants, semantic owners, risk profile, and scope boundaries. Do not report explicitly deferred behavior as missing, turn unresolved uncertainty into a defect, or apply a fixed checklist severity without evidence from the actual change. If detailed review exposes a new changed concept, contract conflict, or material risk, update the brief and perform the corresponding targeted repository search before concluding.
+
+User-provided focus is additive, not a substitute for these autonomously discovered dimensions. The user should not have to ask separately for architecture, effect-certainty, protocol, lifecycle/concurrency, data-safety, security, or semantic-reuse analysis when the diff and governing repository evidence make those concerns applicable.
+
 ## Responsibilities and architecture
 
 - Does each module, service, or component have one coherent conceptual responsibility?
