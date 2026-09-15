@@ -401,3 +401,14 @@ A single local `"GET"` used by one request path with no shared method policy, pl
 > **Recommended direction:** Document the authoritative interface with abort ownership, settlement/effect semantics, and caller resource obligations. Do not duplicate boilerplate on implementation methods that simply satisfy that interface, and do not add TSDoc to trivial private mappers.
 
 **Why the strong version is better:** It asks for durable caller-facing contract documentation and explicitly excludes redundant commentary.
+
+## 24. Structural candidate assessment prevents a silent pass
+
+**Expected:** A high-signal candidate is visibly assessed even when not every dimension becomes a finding.
+
+> **Structural candidate assessment:** `src/remote/fetch-remote-bridge.ts`
+> **Selection signals:** protocol-heavy adapter; exported contracts and concrete implementation; request/auth/lifecycle/streaming/mapping/classification helpers; external-contract literals.
+> **Responsibility inventory:** transport dispatch and request construction are mechanics; status/failure/effect/retry classification is protocol policy; DTO translation is boundary mapping; abort/settlement is operation lifecycle; exported bridge contracts may have an independent import lifecycle.
+> **Assessment:** Inspect cohesion, exported contract placement, the status/failure/effect/retry call chain, protocol literal family owners, and public/lifecycle contract documentation. A final review may conclude some dimensions are intentionally colocated or separately owned, but it must state that evidence rather than silently omitting them.
+
+**Why this matters:** Candidate signals trigger semantic investigation, not a metric finding. The same assessment can conclude that a 1200-line grammar/parser is cohesive and has no actionable finding.

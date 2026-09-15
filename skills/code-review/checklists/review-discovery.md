@@ -62,6 +62,8 @@ discover relevant repository rules, specs, plans, ADRs, and tests
         ↓
 identify semantic owners and risk
         ↓
+select structural candidates and inventory responsibilities
+        ↓
 build the internal Review Brief
         ↓
 perform detailed review
@@ -82,7 +84,24 @@ After reading the complete diff, inventory changed concepts and affected archite
 
 Read applicable repository-root instructions and any more specific instructions governing changed paths. Do not read every document blindly. Every dynamically derived invariant, non-goal, architectural direction, and validation expectation must be traceable to repository or user evidence.
 
-## 4. Build the internal Review Brief
+## 4. Select structural maintainability candidates
+
+After the initial diff/concept inventory and before detailed review, deliberately select structural candidates. For a PR, apply this proportionally to materially changed modules and their direct semantic owners. For an explicit repository-wide or baseline review, actively identify a small, risk-ranked shortlist of high-signal source files/modules for deeper inspection; do not treat every large file as a candidate or turn the exercise into a full redesign.
+
+Signals include unusual size relative to the repository, many methods or exports, imports spanning architectural concerns, protocol-heavy adapter code, mixing transport/mapping/policy/lifecycle/contracts, distinct helper clusters, repeated status/header/method/action literals, and broad manager/service/adapter/helper modules. Signals choose what to inspect only. They are never a finding and create no line, method, export, or complexity threshold.
+
+For each selected candidate, record a concise responsibility inventory in the Review Brief before evaluating findings:
+
+- independently evolving responsibilities, distinguishing mechanics from policy;
+- architectural owner(s), concerns that can change independently, and concerns that require different tests;
+- exported contracts/constants with an independent import or use lifecycle;
+- status/failure/effect/retry/action call chains that may form one distributed policy matrix;
+- protocol literal families—methods, statuses, headers, media types, route fragments, action strings, and protocol markers—and their repository-wide owners; and
+- whether public APIs or lifecycle/concurrency helpers document ownership, cancellation, settlement, effect certainty, resource release, security semantics, and caller obligations.
+
+Conclude each inventory as cohesive despite size, mixed but low-risk, or multiple policy owners/credible audit drift. The final review must visibly state that assessment for selected candidates, including the outcomes for cohesion, contract placement, decision-table ownership, protocol-literal ownership, and documentation; it need not manufacture a separate finding for each dimension.
+
+## 5. Build the internal Review Brief
 
 Build a concise working brief before evaluating findings. It is primarily an internal artifact, not a required preliminary response. Include:
 
@@ -142,7 +161,7 @@ User-provided focus is additive. It does not replace autonomous discovery. Apply
 
 Identify repository-native validation through package scripts, task runners such as mise, Makefiles, CI workflows, contribution docs, and project-specific tooling. Prefer the repository's canonical command and relevant quality gates. Do not invent generic `npm test`, `make test`, or equivalent commands when another source of truth exists. Record what can be run, what CI ran and for which commit, what was only inspected, and any gaps.
 
-## 5. Resolve evidence conflicts
+## 6. Resolve evidence conflicts
 
 Use this default precedence while accounting for explicit repository authority and recency:
 
@@ -156,12 +175,12 @@ Use this default precedence while accounting for explicit repository authority a
 
 Do not blindly make a test authoritative when it is stale, encodes a known bug, or conflicts with a stronger accepted contract. Do not select whichever source supports a convenient finding. Identify material conflicts, determine whether recency/status/corroboration resolves them, and report documentation or contract drift when it matters. Ask a focused question only if unresolved ambiguity prevents a safe review conclusion.
 
-## 6. Corrective and repository-wide reviews
+## 7. Corrective and repository-wide reviews
 
 On corrective re-review, automatically rediscover the same active PR/change, retain the original baseline when still valid, and recover prior findings and focus from current conversational context. Do not require the user to paste them again. Verify each prior finding individually, inspect the corrective delta for regressions, and review the current complete change. Rebuild the Review Brief when the diff, governing evidence, scope, or risk materially changed; if repository/target state switched unexpectedly, resolve that ambiguity before issuing findings.
 
 Normal invocation reviews the active change, not every line of the repository. Construct a repository-wide brief only when the user explicitly requests an audit/baseline review or explicitly establishes that task when no change target exists. Repository-wide searches for semantic ownership and reuse remain required where relevant to changed concepts, but they do not authorize a total redesign.
 
-## 7. User-visible context
+## 8. User-visible context
 
-Do not force a long discovery report before the review. Normal use should remain one command producing one review. When useful, include only a short context summary in the final report: target/range, governing spec or ADR, intentional local overlay, and principal risks. Do not dump the internal search process or Review Brief checklist.
+Do not force a long discovery report before the review. Normal use should remain one command producing one review. When useful, include only a short context summary in the final report: target/range, governing spec or ADR, intentional local overlay, and principal risks. Do not dump the internal search process or Review Brief checklist, but visibly include concise assessments for the selected structural candidates so the reviewer does not silently skip cohesion, contract placement, distributed policy, literal ownership, or documentation.

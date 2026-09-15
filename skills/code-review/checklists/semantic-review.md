@@ -23,7 +23,7 @@ Use Clean Architecture concepts pragmatically. A different intentional architect
 
 ## Module cohesion and exported contract placement
 
-Audit module/file responsibility separately from dependency direction. A technically valid adapter dependency can still be a poor semantic owner when it combines independently evolving contracts, concrete implementation, request construction, authentication, admission/dispatch, abort or timeout lifecycle, streaming, protocol decoding/classification, DTO/domain conversion, acknowledgement validation, effect/retry policy, routes, persistence, or logging. File length, method count, and number of exports only identify where to look; they are not findings.
+Audit module/file responsibility separately from dependency direction. For every structural candidate selected by discovery, complete a concise responsibility inventory before deciding whether there is a finding. A technically valid adapter dependency can still be a poor semantic owner when it combines independently evolving contracts, concrete implementation, request construction, authentication, admission/dispatch, abort or timeout lifecycle, streaming, protocol decoding/classification, DTO/domain conversion, acknowledgement validation, effect/retry policy, routes, persistence, or logging. File length, method count, and number of exports only identify where to look; they are not findings.
 
 Ask:
 
@@ -32,6 +32,8 @@ Ask:
 - Can one responsibility evolve or be understood/tested independently of the others?
 - Do helpers form distinct semantic clusters, multiple policy centers, or a likely future god module?
 - Does the module export both reusable contracts and a concrete implementation, and are consumers forced to import implementation to consume an independently owned contract?
+- Which responsibilities are mechanics versus policy, which have different architectural owners, which could change independently, and which need different tests?
+- Which public/exported contracts have a separate import/use lifecycle, and which knowledge or literal family is already owned elsewhere?
 
 Prefer cohesive modules with clear owners, and decompose by real semantic responsibility rather than an imposed directory layout or size target. A large grammar/parser may be cohesive; a smaller adapter owning several independent policies may warrant a finding. Keep colocated private/local types where that aids readability, and do not move an interface solely because it is beside a class.
 
@@ -137,7 +139,7 @@ For code with async work, background work, retries, unload/reload, enable/disabl
 
 ## Semantic sources of truth and decision tables
 
-Check protocol values, statuses, error codes, route paths, media types, headers, limits, algorithms, state names, permission names, and enum-like strings.
+Check protocol values, statuses, error codes, route paths, media types, headers, limits, algorithms, state names, permission names, and enum-like strings. For a protocol-heavy structural candidate, inventory methods, statuses, headers, media types, route fragments, action strings, and protocol markers as related families before searching repository-wide for owners; do not turn each literal into a separate style finding.
 
 - Does one semantic policy have one authoritative definition?
 - Can copies drift independently across runtime behavior, schemas, tests, generated clients, server routes, and OpenAPI?
@@ -145,7 +147,7 @@ Check protocol values, statuses, error codes, route paths, media types, headers,
 - Are unrelated literals being centralized only because they happen to share a value?
 - Do mappings such as `status -> protocol failure -> application failure -> effect certainty/retryability`, or `method + route + status -> behavior`, form one policy matrix split across independently editable functions?
 
-For a suspected status/effect/retry matrix, first decide whether layers intentionally own different semantics. If they do, preserve that separation and document the distinction in the review. If they encode one policy, prefer one canonical classifier, explicit decision table, `classify -> exhaustive dispatch`, or an equivalent auditable representation. The issue is not that several functions exist; it is that a new status/method can require uncoordinated edits whose relationship is hidden. Table-test material rows where valuable.
+For a suspected status/effect/retry matrix, follow the call chain across helpers—such as status to failure kind, failure kind to effect certainty/retryability, and action to expected status—rather than judging one function at a time. First decide whether layers intentionally own different semantics. If they do, preserve that separation and explain the distinction in the review. If they encode one policy, prefer one canonical classifier, explicit decision table, `classify -> exhaustive dispatch`, or an equivalent auditable representation. The issue is not that several functions exist; it is that a new status/method can require uncoordinated edits whose relationship is hidden. Table-test material rows where valuable.
 
 Centralize meaning, not coincidental spelling.
 
@@ -206,7 +208,7 @@ Scale expectations to operational needs and repository conventions.
 
 ## Documentation
 
-Review documentation quality, not mere presence. Do not require docstrings for every function or method, and do not reward AI-generated narration.
+Review documentation quality, not mere presence. For selected candidate public APIs and lifecycle/concurrency helpers, explicitly assess ownership, cancellation, settlement, effect certainty, resource release, security semantics, and caller obligations at the authoritative abstraction. Do not require docstrings for every function or method, and do not reward AI-generated narration.
 
 - Is the authoritative public/exported abstraction documented when callers need non-obvious invariants, side effects, security semantics, ownership/lifecycle, concurrency behavior, failure/effect semantics, resource-release requirements, or caller obligations?
 - Can a caller understand important failure and lifecycle behavior without reading the implementation?

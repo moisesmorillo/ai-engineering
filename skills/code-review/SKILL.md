@@ -58,6 +58,10 @@ At minimum:
 
 Audit changed modules for semantic cohesion and ownership. The concern is not that a file is large, has many methods, or uses several conditionals. It is that one module becomes the independently editable owner of multiple policies or concepts that change for different reasons. Size, a large export surface, and a concentration of methods are signals to inspect more deeply; a 1200-line parser implementing one coherent grammar can be sound, while a smaller adapter that owns transport, authentication, lifecycle, protocol classification, and domain mapping may not be.
 
+Candidate selection is mandatory before this audit: for a PR, select materially changed modules with structural signals; for an explicit repository-wide/baseline review, actively build a small risk-ranked shortlist of high-signal source modules. Signals include relative size, many methods/exports, imports spanning architectural concerns, protocol-heavy adapters, mixed transport/mapping/policy/lifecycle/contracts, clusters of distinct helpers, repeated protocol literals, and generic manager/service/adapter/helper modules. Signals select files for inspection only; they never create a finding or a numeric threshold.
+
+For every selected candidate, make a concise responsibility inventory before deciding: identify independently evolving responsibilities; mechanics versus policy; architectural owners; concerns that can change or be tested independently; public contracts with an independent import/use lifecycle; and knowledge that may be duplicated elsewhere. Conclude explicitly whether it is cohesive despite size, mixed but low-risk, or has multiple policy owners/a credible audit-drift risk.
+
 Ask:
 
 - What single reason should this module change, and how many unrelated concepts must a reviewer hold to understand it?
@@ -109,7 +113,7 @@ When a changed or newly introduced concept is found, search the repository—not
 - literals, route strings/fragments, query parameter names, regexes, schema definitions, serialization formats, HTTP methods, media types, headers, protocol/version markers, lifecycle/event names, and operation/action strings;
 - error/status codes, storage prefixes, retry limits, timeout values, retry/CAS terms, and business-policy wording.
 
-Inspect protocol-sensitive literals explicitly. Do not require constants for every string or number: a one-off local `"GET"` with no shared policy, `0`/`1`, local indices, and trivial internal labels generally need no extraction. Prefer a finding when a literal represents protocol policy, appears in multiple places, must stay synchronized with a server/client/schema/OpenAPI contract, participates in a decision matrix, has an existing repository owner, is security- or data-safety-relevant, or has non-obvious semantics. Search repository-wide before saying a value should be centralized. If an authoritative constant, helper, schema, formatter/parser, enum/discriminated union, route policy, or classifier already exists, flag missed reuse; if several sites encode one rule and no owner exists, recommend a focused owner—not a `constants.ts` junk drawer.
+For each protocol-heavy selected candidate, inventory the important literal families together—methods, statuses, headers, media types, route fragments, action strings, and protocol markers—then search repository-wide for their owners. Do not flag literals one by one; flag only duplicated semantic policy or missed canonical ownership. Do not require constants for every string or number: a one-off local `"GET"` with no shared policy, `0`/`1`, local indices, and trivial internal labels generally need no extraction. Prefer a finding when a literal represents protocol policy, appears in multiple places, must stay synchronized with a server/client/schema/OpenAPI contract, participates in a decision matrix, has an existing repository owner, is security- or data-safety-relevant, or has non-obvious semantics. Search repository-wide before saying a value should be centralized. If an authoritative constant, helper, schema, formatter/parser, enum/discriminated union, route policy, or classifier already exists, flag missed reuse; if several sites encode one rule and no owner exists, recommend a focused owner—not a `constants.ts` junk drawer.
 
 Determine whether the change reuses an existing primitive or creates a second source of truth. Ask **“Does this code encode knowledge already represented elsewhere?”** Search constants, protocol schemas, OpenAPI definitions, server route policy, enums/discriminated unions, formatters/parsers, and status classifiers before accepting a new literal or helper. Ask what should own the knowledge, whether an authoritative layer already exists, and whether callers are re-implementing knowledge that belongs to a parser, formatter, schema, port, policy service, route capability table, or storage-key helper. A new UUID validator, digest helper, path encoder, result/error type, or retry helper requires evidence that the existing primitive has different semantics.
 
@@ -135,9 +139,9 @@ Use demonstrated impact, not the amount of repeated code. A low-risk duplicated 
 
 ### Status/method decision-table ownership
 
-Explicitly trace mappings such as `HTTP status -> protocol failure -> application failure -> mutation effect certainty`, or `method + route + status -> behavior`. Simple functions can collectively encode one hidden policy matrix when, for example, status maps to failure kind in one helper, failure kind maps to effect certainty in another, and retryability is decided in a third.
+Explicitly trace mappings such as `HTTP status -> protocol failure -> application failure -> mutation effect certainty`, `failure kind -> retryability`, `action -> expected status`, or `method + route + status -> behavior`. Do not inspect only individual helpers: follow their call chains and build the conceptual matrix when simple functions collectively encode one policy.
 
-Raise a finding only after determining whether the mappings genuinely form one policy or intentionally separate layers with different owners. When they are one policy, prefer one canonical classifier, an explicit auditable decision table, `classify -> exhaustive dispatch`, or an equivalent structure that makes all rows visible. Do not force one function when separate layers intentionally own distinct semantics. Explain the policy relationship, independently editable locations, drift scenario, recommended owner/shape, and tests for the relevant matrix rows.
+Raise a finding only after determining whether the mappings genuinely form one policy or intentionally separate layers with different owners. When they are one policy, prefer one canonical classifier, an explicit auditable decision table, `classify -> exhaustive dispatch`, or an equivalent structure that makes all rows visible. Do not force one function when separate layers intentionally own distinct semantics; explain why no finding is warranted in that case. Explain the policy relationship, independently editable locations, drift scenario, recommended owner/shape, and tests for the relevant matrix rows.
 
 ## Dependency boundaries and architecture ownership
 
@@ -295,7 +299,7 @@ If no actionable finding exists, explicitly approve. Do not manufacture findings
 
 ## Default output
 
-The Review Brief remains internal. Include the optional short `Review context` only when it helps the reader understand the target, governing evidence, intentional scope boundary, or principal risk; do not emit a long preliminary discovery report.
+The Review Brief remains internal except for the compact structural candidate assessment required when candidates were selected. Include the optional short `Review context` only when it helps the reader understand the target, governing evidence, intentional scope boundary, or principal risk; do not emit a long preliminary discovery report.
 
 ```text
 Verdict: REQUEST CHANGES / APPROVE WITH NOTES / APPROVE
@@ -304,6 +308,11 @@ Review context (optional)
 - target: PR/branch/range and any intentional working-tree overlay
 - governing evidence: relevant spec/ADR/contract and explicit scope boundary
 - principal risks: only the highest-value discovered review dimensions
+
+Structural candidate assessment (required when candidates were selected)
+- `path/file`: selection signals and concise responsibility inventory
+- cohesion result: cohesive / mixed low-risk / policy-drift risk, with evidence
+- contracts, decision matrix, protocol literal ownership, and public/lifecycle documentation: assessed outcome or linked finding
 
 Blocking findings
 
@@ -345,6 +354,7 @@ Before issuing the verdict, ask:
 - Does error behavior make sense at each boundary?
 - Did the change accidentally widen scope or permissions?
 - Is the implementation simpler or more complicated than necessary?
+- Did every selected structural candidate receive an explicit responsibility inventory and assessment rather than a metric-only judgment?
 - Are tests proving behavior or only satisfying mocks and coverage?
 
 For a re-review, automatically rediscover the same active change, recover prior findings from current conversational context when available, and retain the original baseline when it remains valid. Do not require the user to paste the original brief or findings again. Rebuild the Review Brief if the complete diff, governing evidence, scope, or risk materially changed. Do not say "looks good" merely because CI is green: inspect the corrective delta and current complete change, and mark each prior finding `fixed`, `partially fixed`, `not fixed`, `explicitly deferred with acceptable rationale`, or `withdrawn / not applicable`, with evidence supporting that status. A withdrawal must cite evidence disproving the original finding. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Approve only when every remaining issue is truly non-blocking.
