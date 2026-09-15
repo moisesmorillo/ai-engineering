@@ -272,7 +272,7 @@ These examples demonstrate evidence and impact, not universal project rules. Loc
 
 **Why the strong version is better:** It identifies the semantic public-API rule and all owners, explains the drift failure, recommends one typed policy rather than a cosmetic control-flow change, and preserves intentionally different route policies.
 
-## 16. Obsidian mirror port: correct dependency direction, possible vocabulary leakage
+## 16. Object-storage port: correct dependency direction, possible vocabulary leakage
 
 **Review calibration:** Do not report a Clean/Hexagonal dependency violation for this structure:
 

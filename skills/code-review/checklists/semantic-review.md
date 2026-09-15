@@ -12,7 +12,7 @@ User-provided focus is additive, not a substitute for these autonomously discove
 
 For a corrective review, begin this semantic pass with the prior-finding closure ledger and carried-forward structural-candidate set from discovery. For every prior actionable finding, inspect the final resulting implementation and assign one evidenced disposition: `fixed`, `intentionally deferred`, `rejected`, or `still open`. Use `still open — partially remediated` when a fix reduces but does not eliminate the concern. Tests passing, nearby edits, or a concrete bug fix do not establish closure of a broader ownership or maintainability finding.
 
-Re-run the responsibility inventory for every prior structural candidate over its complete current code and relevant call chain: current responsibilities; mechanics versus policy; public/exported contracts; protocol knowledge; lifecycle/concurrency ownership; distributed classifiers/decision tables; semantic owners; independently testable concerns; and actual reduction of the original risk. Explain a `fixed` or `rejected` structural disposition through changed ownership, clearer boundaries, independent testability, or matrix auditability—not reduced line count or changed literals alone.
+Re-run the responsibility inventory for every prior structural candidate over its complete current code and relevant call chain: current responsibilities; mechanics versus policy; public/exported contracts; protocol knowledge; lifecycle/concurrency ownership; distributed classifiers/decision tables; semantic owners; independently testable concerns; and actual reduction of the original risk. For a materially stateful candidate, reconstruct the final matrix, compare transition-policy ownership before versus after, and apply the [`Stateful structural approval gate`](../SKILL.md#stateful-structural-approval-gate) rather than closing the concern because functional bugs were fixed. Explain a `fixed` or `rejected` structural disposition through changed ownership, clearer boundaries, independent testability, or matrix auditability—not reduced line count or changed literals alone.
 
 Apply the corrective approval gate after this semantic pass: an unresolved prior blocker requires `REQUEST CHANGES`; explicitly dispositioned non-blocking residual concerns require `APPROVE WITH NOTES`; plain `APPROVE` requires no actionable finding. Structural findings are not automatically blocking, and large cohesive files do not require splitting.
 
@@ -45,11 +45,16 @@ Ask:
 
 Prefer cohesive modules with clear owners, and decompose by real semantic responsibility rather than an imposed directory layout or size target. A large grammar/parser may be cohesive; a smaller adapter owning several independent policies may warrant a finding. Keep colocated private/local types where that aids readability, and do not move an interface solely because it is beside a class.
 
+For every materially stateful or safety-critical candidate, the [`Stateful structural approval gate`](../SKILL.md#stateful-structural-approval-gate) is mandatory. Reconstruct the cross-method policy/state matrix and identify authoritative transition ownership; method inventory, broad domain labels, proximity, shallow guards, constants, and green tests cannot substitute for that evidence. Preserve ordinary local guard clauses, but assess conditions spread across helpers as one conceptual policy when they jointly implement a closed matrix.
+
+Apply the authoritative [implementation-local declaration and helper ownership guidance](../SKILL.md#implementation-local-declarations-and-helper-ownership). Treat declarations and helper tails as semantic evidence rather than clutter metrics; preserve true private mechanics and repository conventions.
+
 Raise a cohesion finding only when the mixed responsibilities create a concrete navigation, review, testing, policy-drift, safety, or correctness risk. Name the file, responsibilities, independently evolving evidence, proposed semantic boundaries, what should remain together, whether behavior can remain unchanged, and tests that protect the refactor. Use NOTE/NIT for a cohesive or merely navigational concern; MINOR for material maintainability/auditability loss with sound current behavior; MAJOR only when mixed protocol, lifecycle, security, or safety policy creates credible drift/correctness risk; never make cohesion alone a BLOCKER.
 
 - [ ] Changed modules have a coherent semantic owner; metrics were used only to choose inspection targets.
 - [ ] Reusable exported contracts are placed at their architectural owner or intentionally colocated; consumers need not import implementation merely to consume a separately owned contract.
 - [ ] Proposed decomposition, if any, preserves cohesive groups and gives policy areas independently testable boundaries without demanding private-helper tests.
+- [ ] Every applicable stateful candidate passed the approval gate with matrix, ownership, change-coupling, and focused-test evidence—or retains an actionable structural finding.
 
 ## Dependency boundaries and semantic ownership
 

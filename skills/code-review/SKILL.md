@@ -28,7 +28,7 @@ An explicit user target, range, repository, context, or focus is an override or 
 
 ## Review workflow
 
-Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios and [`examples/corrective-review.md`](examples/corrective-review.md) for finding-closure, structural-persistence, and policy-literal calibration.
+Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios, [`examples/corrective-review.md`](examples/corrective-review.md) for finding-closure and policy-literal calibration, and [`examples/stateful-structural-approval.md`](examples/stateful-structural-approval.md) for the stateful structural approval gate.
 
 At minimum:
 
@@ -58,9 +58,9 @@ At minimum:
 
 Audit changed modules for semantic cohesion and ownership. The concern is not that a file is large, has many methods, or uses several conditionals. It is that one module becomes the independently editable owner of multiple policies or concepts that change for different reasons. Size, a large export surface, and a concentration of methods are signals to inspect more deeply; a 1200-line parser implementing one coherent grammar can be sound, while a smaller adapter that owns transport, authentication, lifecycle, protocol classification, and domain mapping may not be.
 
-Candidate selection is mandatory before this audit: for a PR, select materially changed modules with structural signals; for an explicit repository-wide/baseline review, actively build a small risk-ranked shortlist of high-signal source modules. Signals include relative size, many methods/exports, imports spanning architectural concerns, protocol-heavy adapters, mixed transport/mapping/policy/lifecycle/contracts, clusters of distinct helpers, repeated protocol literals, and generic manager/service/adapter/helper modules. Signals select files for inspection only; they never create a finding or a numeric threshold.
+Candidate selection is mandatory before this audit: for a PR, select materially changed modules with structural signals; for an explicit repository-wide/baseline review, actively build a small risk-ranked shortlist of high-signal source modules. Signals include relative size, many methods/exports, imports spanning architectural concerns, protocol-heavy adapters, mixed transport/mapping/policy/lifecycle/contracts, coordination across several state/effect/evidence dimensions, clusters of distinct helpers, accumulated implementation-local declarations, repeated protocol literals, and generic manager/service/adapter/helper modules. Signals select files for inspection only; they never create a finding or a numeric threshold.
 
-For every selected candidate, make a concise responsibility inventory before deciding: identify independently evolving responsibilities; mechanics versus policy; architectural owners; concerns that can change or be tested independently; public contracts with an independent import/use lifecycle; and knowledge that may be duplicated elsewhere. Conclude explicitly whether it is cohesive despite size, mixed but low-risk, or has multiple policy owners/a credible audit-drift risk.
+For every selected candidate, make a concise responsibility inventory before deciding: identify independently evolving responsibilities; mechanics versus policy; architectural owners; concerns that can change or be tested independently; public contracts with an independent import/use lifecycle; declaration and helper clusters; and knowledge that may be duplicated elsewhere. Conclude explicitly whether it is cohesive despite size, mixed but low-risk, or has multiple policy owners/a credible audit-drift risk. If the candidate materially owns or coordinates safety-critical or stateful behavior, apply the stateful structural approval gate below before reaching that conclusion.
 
 Ask:
 
@@ -71,6 +71,52 @@ Ask:
 - Does this module create multiple policy centers, make navigation/audit significantly harder, invite future additions into a god module, or force tests to exercise unrelated behavior together?
 
 Common but not exhaustive clusters include public contracts/types, request construction and dispatch, authentication, protocol decoding/classification, domain mapping, lifecycle/concurrency, persistence, logging, validation, retry/effect policy, and route helpers. Prefer decomposition by real semantic responsibility and architectural owner—not a prescribed folder tree, one helper per concern, or arbitrary size splitting. Keep behavior unchanged when a refactor is purely structural, and state what belongs together as well as what should separate.
+
+### Stateful structural approval gate
+
+Apply this gate when a selected candidate materially owns or coordinates stateful or safety-critical behavior whose decisions combine dimensions such as lifecycle phase, event/input kind, durable state, counters or budgets, effect certainty, retries, observed evidence/reconciliation, admission or fencing, concurrency/reservations, error classifications, or recovery transitions. Discover the actual dimensions from the code and contracts; this list is a trigger, not a required schema.
+
+Before approving structural cohesion, reconstruct the **conceptual cross-method policy/state matrix** and identify the owner of every material transition decision. A useful repository-specific model may resemble:
+
+```text
+state/phase
++ event/input
++ counters/budgets
++ external result/effect
++ observed evidence
++ lifecycle/admission condition
+→ next state/action/retry/acknowledge/block/pause
+```
+
+Do not infer cohesion from file size, a method/responsibility inventory, a broad bounded-context label such as “synchronization,” “transport,” or “workflow,” code proximity, shallow methods, dedicated constants, green tests, or the fact that each condition is locally readable. Answer, with code and test evidence:
+
+1. What are the state dimensions?
+2. What events or results cause transitions?
+3. Which counters, budgets, admission flags, fencing conditions, or lifecycle conditions affect decisions?
+4. What are the terminal, blocking, retry, pause, acknowledgement, and recovery outcomes?
+5. Across which methods and modules is the matrix implemented?
+6. Is there one authoritative semantic owner for each policy and for the transition relationship as a whole?
+7. Can a maintainer add or change one transition without editing unrelated helpers or reconstructing implicit coupling?
+8. Do focused tests exercise material matrix rows and cross-products, or only individual methods and happy paths?
+
+Plain `APPROVE` is permitted only when this audit supports one of these evidenced conclusions:
+
+- **Genuinely cohesive:** the matrix has a clear authoritative owner; collaborators own mechanics rather than competing policy; cross-method coupling is intentional and locally auditable; focused tests cover material interactions; and extraction would split atomic invariants or worsen correctness.
+- **Structural concern resolved:** independently evolving policies now have explicit semantic owners; a facade may remain; decision/state matrices are explicit and exhaustive where that improves auditability; and tests cover the extracted policy boundaries.
+
+If neither conclusion can be demonstrated, retain an actionable structural finding at severity justified by the audit or safety risk. `APPROVE WITH NOTES` remains available only under the normal verdict rules for an explicitly dispositioned, non-blocking concern; the gate does not automatically make every structural concern blocking.
+
+This is a cross-method ownership audit, not a control-flow style rule. Ordinary local guard clauses remain desirable. Review several shallow helpers as one conceptual policy only when their conditions collectively implement a closed decision/state matrix. Do not require a class for every state machine, a `switch` for every `if`, or one function/table when intentional layers have clear, separately tested semantic ownership.
+
+### Implementation-local declarations and helper ownership
+
+When an implementation module accumulates interfaces, types, constants, or local/free/private helpers, classify them by semantic ownership rather than moving them for tidiness:
+
+- Keep declarations that are genuinely private mechanics of one cohesive responsibility, including trivial local types that make the implementation easier to read.
+- Investigate declarations that represent domain/application concepts, reusable contracts, state-policy models, or semantic helpers with an independent change/import/test lifecycle. Place them with their semantic owner, respecting established repository conventions such as `*.types.ts` or `*.constants.ts` when those conventions exist.
+- Classify a long helper tail by responsibility. Clusters for state transformation, bootstrap/admission, reconciliation, retry/evidence, acknowledgement matching, or failure classification may expose missing policy owners even when every helper is small.
+
+Do not recommend a generic `utils.ts`, one declaration per file, or mechanical extraction. Raise a finding only when declaration/helper placement reveals mixed ownership, change coupling, hidden policy, competing sources of truth, or material auditability risk.
 
 ### Exported contract placement
 
@@ -175,11 +221,13 @@ Every previously selected structural candidate remains in scope for the correcti
 - semantic owners elsewhere in the repository; and
 - whether the corrective changes reduced the original risk, fully resolved it, or left material ownership/audit risk.
 
+For every materially stateful or safety-critical carried candidate, re-run the [stateful structural approval gate](#stateful-structural-approval-gate) against the final resulting code. Reconstruct its matrix rather than inheriting the prior inventory, compare responsibility and state-policy ownership before versus after, and explicitly disposition the structural concern. Correctness fixes, green tests, extracted constants, or a more accurate method inventory do not close a distributed-state-machine finding.
+
 The candidate may remain large and still be cohesive; splitting is never required by size alone. The reviewer may conclude that no structural finding remains, but must explain what changed in ownership, boundaries, testability, or matrix auditability to support that conclusion.
 
 ### Corrective approval gate
 
-A corrective review must not return `APPROVE` or `APPROVE WITH NOTES` while a prior blocking finding remains unresolved. A purported deferral does not make a blocking finding non-blocking unless repository policy or an authorized owner explicitly accepts a bounded scope and the report cites evidence that the residual risk no longer violates an approval criterion. Prior non-blocking structural concerns may remain with `APPROVE WITH NOTES` only when each has an explicit justified disposition; plain `APPROVE` still means no actionable finding remains. Fixing functional defects inside a structural candidate does not automatically close its structural finding.
+A corrective review must not return `APPROVE` or `APPROVE WITH NOTES` while a prior blocking finding remains unresolved. A corrective plain `APPROVE` also requires every applicable carried candidate to pass the stateful structural approval gate on the final code. A purported deferral does not make a blocking finding non-blocking unless repository policy or an authorized owner explicitly accepts a bounded scope and the report cites evidence that the residual risk no longer violates an approval criterion. Prior non-blocking structural concerns may remain with `APPROVE WITH NOTES` only when each has an explicit justified disposition; plain `APPROVE` still means no actionable finding remains. Fixing functional defects inside a structural candidate does not automatically close its structural finding.
 
 ## Dependency boundaries and architecture ownership
 
@@ -354,7 +402,8 @@ Structural candidate assessment (required when candidates were selected now or i
 - `path/file`: selection signals and concise current responsibility inventory
 - cohesion result: cohesive / mixed low-risk / policy-drift risk, with evidence
 - contracts, decision matrix, protocol literal ownership, and public/lifecycle documentation: assessed outcome or linked finding
-- corrective pass only: how the change reduced, resolved, or failed to reduce the original structural risk
+- stateful gate when applicable: discovered dimensions, transition/policy owner, matrix-focused test evidence, and why cohesion or resolution was demonstrated—or the linked retained finding
+- corrective pass only: how responsibility and state-policy ownership changed, resolved, or failed to reduce the original structural risk
 
 Blocking findings
 
@@ -397,6 +446,7 @@ Before issuing the verdict, ask:
 - Did the change accidentally widen scope or permissions?
 - Is the implementation simpler or more complicated than necessary?
 - Did every selected structural candidate receive an explicit responsibility inventory and assessment rather than a metric-only judgment?
+- For each materially stateful candidate, did I reconstruct the cross-method policy/state matrix, locate authoritative transition ownership, and apply the approval gate instead of accepting a broad bounded-context label?
 - Are tests proving behavior or only satisfying mocks and coverage?
 
 For a re-review, automatically rediscover the same active change, recover prior findings and previously selected structural candidates from current conversational or associated review context when available, and retain the original baseline when it remains valid. Do not require the user to paste the original brief or findings again. Rebuild the Review Brief if the complete diff, governing evidence, scope, or risk materially changed. Do not say "looks good" merely because CI is green: inspect the corrective delta and the final complete implementation for every prior finding. Record each prior finding as `fixed`, `intentionally deferred`, `rejected`, or `still open`; represent partial remediation as `still open — partially remediated`. Rejections must cite evidence disproving the original finding, and deferrals must cite accepted scope and bounded non-blocking risk. Re-run the responsibility inventory for every prior structural candidate rather than inferring closure from functional fixes in the same module. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Apply the corrective approval gate: unresolved prior blockers require `REQUEST CHANGES`, and acknowledged non-blocking residual findings require `APPROVE WITH NOTES` rather than silently disappearing.
