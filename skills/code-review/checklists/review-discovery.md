@@ -126,13 +126,15 @@ For changed concepts, identify repository-wide owners and competing implementati
 - storage representations and migration policy;
 - business policy, authorization, and authentication;
 - retry, idempotency, CAS, and network-effect certainty;
-- configuration.
+- configuration;
+- protocol-sensitive literal owners (constants, schemas/OpenAPI, routes, parsers/formatters, enums, and classifiers); and
+- exported public contracts and their architectural/import owners.
 
-Use this map to drive the existing repository-wide semantic duplication and reuse audit. Search repository-wide where ownership is relevant without escalating the review into an unrelated codebase redesign.
+Use this map to drive the existing repository-wide semantic duplication and reuse audit and the module-cohesion audit. Search repository-wide where ownership is relevant without escalating the review into an unrelated codebase redesign.
 
 ### Risk profile
 
-Increase scrutiny based on evidence when the change touches destructive operations, persistence, concurrency/CAS, authentication/authorization, secrets, protocol parsing, migrations, storage formats, recovery, lifecycle/state machines, retries/idempotency, network-effect certainty, or cross-device/process behavior. Derive review dimensions from the diff and governing evidence; the user should not need to prompt separately for effect certainty, architecture boundaries, protocol acknowledgement validation, ADR compliance, lifecycle races, or semantic reuse when they are inferable.
+Increase scrutiny based on evidence when the change touches destructive operations, persistence, concurrency/CAS, authentication/authorization, secrets, protocol parsing, migrations, storage formats, recovery, lifecycle/state machines, retries/idempotency, network-effect certainty, or cross-device/process behavior. Also add structural maintainability risk when the diff introduces a very large file, a high concentration of semantic responsibilities, a protocol-heavy adapter, many literals tied to external contracts, or a public contract surface. These are investigation signals, not metric-based findings. Derive review dimensions from the diff and governing evidence; the user should not need to prompt separately for file cohesion, protocol literal ownership, effect certainty, architecture boundaries, protocol acknowledgement validation, ADR compliance, lifecycle races, or semantic reuse when they are inferable.
 
 User-provided focus is additive. It does not replace autonomous discovery. Apply checklist sections proportionately; do not assign severity from a fixed checklist regardless of the actual risk.
 

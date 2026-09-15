@@ -36,15 +36,15 @@ At minimum:
 2. Inspect the complete diff, identify changed concepts, and derive an evidence-backed internal Review Brief from relevant repository sources.
 3. Inspect automated checks, canonical validation, and meaningful diagnostics.
 4. Read affected implementation, tests, semantic owners, and surrounding contracts.
-5. Review architecture, control flow, failure behavior, data safety, security, lifecycle/concurrency, operability, and compatibility in proportion to discovered risk.
-6. Review test semantics and coverage—not just test counts or percentages.
+5. Review architecture, module cohesion, public-contract placement, control flow, failure behavior, data safety, security, lifecycle/concurrency, operability, and compatibility in proportion to discovered risk.
+6. Review test semantics, including whether semantic policy boundaries can be tested independently, and coverage—not just test counts or percentages.
 7. Perform a final manual semantic pass after automation.
 8. Report only specific, evidenced, actionable findings.
 9. On corrective review, recover and verify every prior finding individually while checking the fix for regressions.
 
 ## Core decision heuristics
 
-- Prefer conceptual responsibility and clear ownership over arbitrary file or function size limits.
+- Prefer conceptual responsibility and clear ownership over arbitrary file, class, or function size limits. File size and method count are discovery signals, never automatic findings.
 - Preserve the project's intentional architecture; flag boundary erosion and accidental dependency direction, not pattern differences by themselves.
 - Prefer clear control flow: guard independent preconditions, use ordinary `if` for simple binary choices, and use exhaustive handling for closed states. Treat control-flow complexity as a correctness and auditability signal, not a branch-count style rule; apply the detailed control-flow checks below.
 - Give one semantic policy one authoritative source. Do not centralize unrelated literals merely because their text or value matches; apply the repository-wide duplication and reuse audit below rather than a blanket DRY rule.
@@ -53,6 +53,41 @@ At minimum:
 - Treat coverage as a regression signal, not proof of behavior quality.
 - For async work that crosses lifecycle boundaries, identify the relevant lifetimes and make each `busy`, `pending`, `inFlight`, `loaded`, or `active` guard belong to the lifetime of the invariant it protects. Do not assume teardown cancels host work; check that reload, re-enable, or retry cannot reset exclusion while non-cancellable work remains pending, and that stale completion cannot affect a newer lifetime. When operation ownership and presentation/session ownership differ, keep them separate. Apply the detailed lifecycle/interleaving checks in the semantic checklist.
 - Do not add dependencies, abstraction, functional-programming libraries, or type cleverness solely to satisfy reviewer taste.
+
+## Module cohesion, decomposition, and public contract placement
+
+Audit changed modules for semantic cohesion and ownership. The concern is not that a file is large, has many methods, or uses several conditionals. It is that one module becomes the independently editable owner of multiple policies or concepts that change for different reasons. Size, a large export surface, and a concentration of methods are signals to inspect more deeply; a 1200-line parser implementing one coherent grammar can be sound, while a smaller adapter that owns transport, authentication, lifecycle, protocol classification, and domain mapping may not be.
+
+Ask:
+
+- What single reason should this module change, and how many unrelated concepts must a reviewer hold to understand it?
+- Are transport mechanics mixed with protocol/business policy, DTO/domain mapping, lifecycle/concurrency, persistence, logging, retry/effect policy, route construction, or validation?
+- Could one responsibility evolve, be understood, or be tested without meaningfully changing the others?
+- Does the file expose reusable contracts alongside one concrete implementation, and do helpers form separate semantic clusters?
+- Does this module create multiple policy centers, make navigation/audit significantly harder, invite future additions into a god module, or force tests to exercise unrelated behavior together?
+
+Common but not exhaustive clusters include public contracts/types, request construction and dispatch, authentication, protocol decoding/classification, domain mapping, lifecycle/concurrency, persistence, logging, validation, retry/effect policy, and route helpers. Prefer decomposition by real semantic responsibility and architectural owner—not a prescribed folder tree, one helper per concern, or arbitrary size splitting. Keep behavior unchanged when a refactor is purely structural, and state what belongs together as well as what should separate.
+
+### Exported contract placement
+
+Review exported interfaces, types, capability ports, dependency contracts, and constants for their semantic owner. Ask whether each belongs next to the implementation, in a dedicated contract/types module, in core/application, in protocol, or at the adapter boundary. Colocation is often clearest: do **not** report an interface merely because it shares a file with its class, and preserve private/local types when they improve readability.
+
+Raise a finding only when the contract is independently reused, has a different architectural owner, requires consumers to import an implementation module merely to consume it, causes circular or awkward dependencies, or makes implementation details part of the public import surface. Recommend the narrowest placement that restores ownership; do not enforce one-interface-per-file or Clean Architecture folder policing.
+
+### Cohesion finding quality and severity
+
+Never write only “file is too large.” A valid cohesion/god-module finding must include: (1) the exact file/module; (2) independent responsibilities mixed together; (3) a concrete maintenance or audit risk; (4) evidence they evolve independently; (5) proposed semantic boundaries; (6) what should remain together; (7) whether behavior can remain unchanged; and (8) tests that protect the refactor.
+
+- **NOTE/NIT:** large but cohesive/readable, or a bounded navigation concern without material risk.
+- **MINOR:** independently evolving responsibilities materially reduce maintainability or auditability while current behavior appears sound.
+- **MAJOR:** multiple policy owners or mixed lifecycle, protocol, security, or safety responsibilities create credible drift or correctness risk.
+- **BLOCKER:** only for an actual severe defect; module size or cohesion alone is never a blocker.
+
+When recommending decomposition, audit test boundaries too: can each policy area be tested independently, are status/effect mappings table-tested where valuable, would an extraction reduce test coupling, and are tests giant because responsibilities are giant? Do not require tests for private helpers when observable behavior tests are clearer.
+
+### Repository-wide structural smell audit
+
+During an explicit repository-wide or baseline review, use raw metrics only to select modules for semantic inspection. Look for unusually large source files, classes with many unrelated methods, files exporting many unrelated concepts, modules containing both contracts and infrastructure implementation, repeated status/header/method literals, repeated conversion/mapping logic, multiple status/effect classifiers, and utility files that have become semantic dumping grounds. Report only evidence of mixed ownership, drift, or auditability risk—not a metric or category match by itself.
 
 ## Repository-wide duplication and reuse audit
 
@@ -71,10 +106,12 @@ Examples of semantic duplication include route definitions repeated in router, C
 When a changed or newly introduced concept is found, search the repository—not only changed files or the PR diff—for:
 
 - function and helper names, related type names, constants, and enum-like values;
-- literals, route strings, regexes, schema definitions, serialization formats, media types, and headers;
-- error/status codes, storage prefixes, retry/CAS terms, and business-policy wording.
+- literals, route strings/fragments, query parameter names, regexes, schema definitions, serialization formats, HTTP methods, media types, headers, protocol/version markers, lifecycle/event names, and operation/action strings;
+- error/status codes, storage prefixes, retry limits, timeout values, retry/CAS terms, and business-policy wording.
 
-Determine whether the change reuses an existing primitive or creates a second source of truth. Ask what should own the knowledge, whether an authoritative layer already exists, and whether callers are re-implementing knowledge that belongs to a parser, formatter, schema, port, policy service, route capability table, or storage-key helper. A new UUID validator, digest helper, path encoder, result/error type, or retry helper requires evidence that the existing primitive has different semantics.
+Inspect protocol-sensitive literals explicitly. Do not require constants for every string or number: a one-off local `"GET"` with no shared policy, `0`/`1`, local indices, and trivial internal labels generally need no extraction. Prefer a finding when a literal represents protocol policy, appears in multiple places, must stay synchronized with a server/client/schema/OpenAPI contract, participates in a decision matrix, has an existing repository owner, is security- or data-safety-relevant, or has non-obvious semantics. Search repository-wide before saying a value should be centralized. If an authoritative constant, helper, schema, formatter/parser, enum/discriminated union, route policy, or classifier already exists, flag missed reuse; if several sites encode one rule and no owner exists, recommend a focused owner—not a `constants.ts` junk drawer.
+
+Determine whether the change reuses an existing primitive or creates a second source of truth. Ask **“Does this code encode knowledge already represented elsewhere?”** Search constants, protocol schemas, OpenAPI definitions, server route policy, enums/discriminated unions, formatters/parsers, and status classifiers before accepting a new literal or helper. Ask what should own the knowledge, whether an authoritative layer already exists, and whether callers are re-implementing knowledge that belongs to a parser, formatter, schema, port, policy service, route capability table, or storage-key helper. A new UUID validator, digest helper, path encoder, result/error type, or retry helper requires evidence that the existing primitive has different semantics.
 
 Raise a finding when one semantic rule has multiple independently editable owners and a future change to one copy can change behavior without changing the other. Prefer one canonical parser/formatter, route policy, schema/validator, business-policy service, storage-key helper, or error/status mapping owner. Do not centralize unrelated values merely because strings or shapes happen to match. If callers intentionally have different policies, preserve local implementations and explain the semantic distinction.
 
@@ -95,6 +132,12 @@ Every duplication finding must include: (1) exact duplicated locations, includin
 ### Duplication severity
 
 Use demonstrated impact, not the amount of repeated code. A low-risk duplicated implementation is usually a review NOTE/NIT or MINOR. Multiple sources of truth for auth, protocol acceptance, destructive operations, CAS/concurrency, storage formats, routes/OpenAPI/CORS, recovery/lifecycle policy, retry, or idempotency are typically MAJOR. Use BLOCKER only when the duplication already produces a concrete correctness or security defect, such as one copy accepting data another rejects or a boundary being bypassed.
+
+### Status/method decision-table ownership
+
+Explicitly trace mappings such as `HTTP status -> protocol failure -> application failure -> mutation effect certainty`, or `method + route + status -> behavior`. Simple functions can collectively encode one hidden policy matrix when, for example, status maps to failure kind in one helper, failure kind maps to effect certainty in another, and retryability is decided in a third.
+
+Raise a finding only after determining whether the mappings genuinely form one policy or intentionally separate layers with different owners. When they are one policy, prefer one canonical classifier, an explicit auditable decision table, `classify -> exhaustive dispatch`, or an equivalent structure that makes all rows visible. Do not force one function when separate layers intentionally own distinct semantics. Explain the policy relationship, independently editable locations, drift scenario, recommended owner/shape, and tests for the relevant matrix rows.
 
 ## Dependency boundaries and architecture ownership
 
