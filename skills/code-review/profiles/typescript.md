@@ -11,7 +11,7 @@ Apply this profile in addition to the language-agnostic core. First inspect the 
 - Check generic defaults and omitted framework generic parameters for silent degradation to broad types.
 - Do not use `Record<string, unknown>` or open index signatures when the object has a known closed shape.
 - Give duplicated union literals and shared enum-like values one authoritative exported type/value definition when they represent one policy.
-- Type protocol statuses, headers, media types, and error codes strongly enough to prevent drift without making simple code opaque.
+- Type protocol statuses, headers, media types, and error codes strongly enough to prevent drift without making simple code opaque. Inspect method/status/action literals collectively when they encode one policy matrix even if each occurs only once; do not introduce types or constants merely to hide ordinary local literals.
 - Model closed states with discriminated unions where that prevents invalid boolean combinations or enables exhaustive handling.
 - For a closed union, classify or narrow its discriminant once at the semantic owner when practical. Repeated checks of the same tag across distant validator branches or callers can hide an omitted variant or duplicate policy; prefer exhaustive dispatch when it materially exposes completeness, but do not replace every readable local `if` with a `switch`.
 - Verify type guards actually prove their predicate and do not rely on unchecked shape assumptions.

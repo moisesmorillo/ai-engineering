@@ -28,7 +28,7 @@ An explicit user target, range, repository, context, or focus is an override or 
 
 ## Review workflow
 
-Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios.
+Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios and [`examples/corrective-review.md`](examples/corrective-review.md) for finding-closure, structural-persistence, and policy-literal calibration.
 
 At minimum:
 
@@ -40,14 +40,14 @@ At minimum:
 6. Review test semantics, including whether semantic policy boundaries can be tested independently, and coverage—not just test counts or percentages.
 7. Perform a final manual semantic pass after automation.
 8. Report only specific, evidenced, actionable findings.
-9. On corrective review, recover and verify every prior finding individually while checking the fix for regressions.
+9. On corrective review, recover every prior actionable finding and previously selected structural candidate, inspect the final resulting implementation, and give each finding an explicit, evidenced disposition while checking the fix for regressions.
 
 ## Core decision heuristics
 
 - Prefer conceptual responsibility and clear ownership over arbitrary file, class, or function size limits. File size and method count are discovery signals, never automatic findings.
 - Preserve the project's intentional architecture; flag boundary erosion and accidental dependency direction, not pattern differences by themselves.
 - Prefer clear control flow: guard independent preconditions, use ordinary `if` for simple binary choices, and use exhaustive handling for closed states. Treat control-flow complexity as a correctness and auditability signal, not a branch-count style rule; apply the detailed control-flow checks below.
-- Give one semantic policy one authoritative source. Do not centralize unrelated literals merely because their text or value matches; apply the repository-wide duplication and reuse audit below rather than a blanket DRY rule.
+- Give one semantic policy one authoritative source. Inspect literals collectively when methods, actions, statuses, or states form a policy matrix, even if each value appears only once and no constant exists. Do not centralize unrelated or ordinary local literals merely because their text or value matches; apply the repository-wide duplication and reuse audit below rather than a blanket DRY or “no magic numbers” rule.
 - Prefer typed or structured failures when supported. Never let an important failure silently become a successful empty result.
 - Prioritize data integrity, trust boundaries, and externally observable behavior over convenience or style.
 - Treat coverage as a regression signal, not proof of behavior quality.
@@ -137,11 +137,49 @@ Every duplication finding must include: (1) exact duplicated locations, includin
 
 Use demonstrated impact, not the amount of repeated code. A low-risk duplicated implementation is usually a review NOTE/NIT or MINOR. Multiple sources of truth for auth, protocol acceptance, destructive operations, CAS/concurrency, storage formats, routes/OpenAPI/CORS, recovery/lifecycle policy, retry, or idempotency are typically MAJOR. Use BLOCKER only when the duplication already produces a concrete correctness or security defect, such as one copy accepting data another rejects or a boundary being bypassed.
 
-### Status/method decision-table ownership
+### Policy literals and status/method decision-table ownership
 
-Explicitly trace mappings such as `HTTP status -> protocol failure -> application failure -> mutation effect certainty`, `failure kind -> retryability`, `action -> expected status`, or `method + route + status -> behavior`. Do not inspect only individual helpers: follow their call chains and build the conceptual matrix when simple functions collectively encode one policy.
+A literal does not require extraction merely because it is a string or number. Inspect literal families collectively, however, when values such as HTTP methods (`GET`, `PUT`, `POST`, `DELETE`), statuses (`200`, `201`, `401`, `403`, `404`, `409`, `412`, `428`, `429`, `5xx`), or actions/states (`create`, `update`, `recreate`, `tombstone`, `seal`, `purge`) select application failure, effect certainty, retryability, or protocol compatibility. This analysis applies even when every value occurs only once, all values are in one file, no canonical constant exists, and each branch is locally obvious. The question is not “Should `404` be a constant?” but “Do these values collectively encode a policy table that needs one auditable semantic owner?” Do not create constants merely to hide literals.
 
-Raise a finding only after determining whether the mappings genuinely form one policy or intentionally separate layers with different owners. When they are one policy, prefer one canonical classifier, an explicit auditable decision table, `classify -> exhaustive dispatch`, or an equivalent structure that makes all rows visible. Do not force one function when separate layers intentionally own distinct semantics; explain why no finding is warranted in that case. Explain the policy relationship, independently editable locations, drift scenario, recommended owner/shape, and tests for the relevant matrix rows.
+Explicitly trace mappings such as `HTTP status -> protocol failure -> application failure -> mutation effect certainty -> retry/pause behavior`, `failure kind -> retryability`, `action -> expected status`, or `method + route + status -> behavior`. Do not inspect only individual helpers: follow their call chains and construct the conceptual matrix when individually simple functions collectively encode one policy. Assess the matrix as a whole for overlapping branches, impossible or missing combinations, action-specific differences, duplicated refusal/retry knowledge, multiple independently editable owners, and additions that require coordinated edits across several helpers.
+
+Raise a finding only after determining whether the mappings genuinely form one policy or intentionally separate layers with different owners. When they are one policy, prefer one canonical typed classifier, an explicit auditable decision table, `classify -> exhaustive dispatch`, or an equivalent structure that makes material rows and completeness visible. Do not force one function, turn every `if` into `switch`, or centralize unrelated values when separate layers intentionally own distinct semantics; explain why no finding is warranted in that case. Explain the policy relationship, independently editable locations, drift scenario, recommended owner/shape, and tests for the relevant matrix rows.
+
+## Corrective finding closure and structural persistence
+
+A corrective review is a closure audit, not a fresh diff-only review. Recover all prior actionable findings from the current conversation, prior report, or associated review context, plus every module/file previously selected as a structural candidate. Preserve stable finding titles or identifiers where available so the new report is auditable.
+
+Give every prior actionable finding exactly one disposition:
+
+| Disposition | Required evidence |
+|---|---|
+| `fixed` | The final resulting implementation addresses the cause and relevant regression risk. |
+| `intentionally deferred` | An owner or governing scope explicitly accepts a bounded residual risk; cite the acceptance, rationale or follow-up, and evidence that the issue is non-blocking. |
+| `rejected` | New contract, implementation, or reproducer evidence disproves the original finding; cite it and correct the record. |
+| `still open` | The concern remains in the final implementation; state current severity/blocking status and any partial remediation. |
+
+“Partially fixed” describes progress, not closure: record it as `still open — partially remediated` and identify both the improvement and residual concern. A finding never disappears because nearby code changed, tests became green, concrete bugs in the same module were fixed, or the reviewer concentrated on the corrective delta. Resolved findings need not be repeated verbosely; a compact finding-resolution table or list is sufficient.
+
+Inspect the complete resulting code path for each prior finding, not only changed lines. A shared-constant extraction may resolve duplicated route/header ownership while leaving status/failure/effect policy distributed; report those as separate outcomes or partial remediation rather than marking the broader concern fixed.
+
+### Reassess prior structural candidates
+
+Every previously selected structural candidate remains in scope for the corrective pass, even if the latest diff changes only nearby tests, constants, or correctness logic. Re-run a concise responsibility inventory over the final module and its relevant call chain:
+
+- responsibilities currently present and which can evolve or be tested independently;
+- mechanics versus policy and their semantic/architectural owners;
+- public/exported contracts and their import/use lifecycle;
+- protocol knowledge and protocol-literal families;
+- lifecycle/concurrency ownership;
+- distributed classifiers or decision tables across callers and helpers;
+- semantic owners elsewhere in the repository; and
+- whether the corrective changes reduced the original risk, fully resolved it, or left material ownership/audit risk.
+
+The candidate may remain large and still be cohesive; splitting is never required by size alone. The reviewer may conclude that no structural finding remains, but must explain what changed in ownership, boundaries, testability, or matrix auditability to support that conclusion.
+
+### Corrective approval gate
+
+A corrective review must not return `APPROVE` or `APPROVE WITH NOTES` while a prior blocking finding remains unresolved. A purported deferral does not make a blocking finding non-blocking unless repository policy or an authorized owner explicitly accepts a bounded scope and the report cites evidence that the residual risk no longer violates an approval criterion. Prior non-blocking structural concerns may remain with `APPROVE WITH NOTES` only when each has an explicit justified disposition; plain `APPROVE` still means no actionable finding remains. Fixing functional defects inside a structural candidate does not automatically close its structural finding.
 
 ## Dependency boundaries and architecture ownership
 
@@ -309,10 +347,14 @@ Review context (optional)
 - governing evidence: relevant spec/ADR/contract and explicit scope boundary
 - principal risks: only the highest-value discovered review dimensions
 
-Structural candidate assessment (required when candidates were selected)
-- `path/file`: selection signals and concise responsibility inventory
+Finding resolution (required for corrective review)
+- prior finding identifier/title | prior severity/blocking status | fixed / intentionally deferred / rejected / still open | concise evidence and residual risk
+
+Structural candidate assessment (required when candidates were selected now or in a prior review)
+- `path/file`: selection signals and concise current responsibility inventory
 - cohesion result: cohesive / mixed low-risk / policy-drift risk, with evidence
 - contracts, decision matrix, protocol literal ownership, and public/lifecycle documentation: assessed outcome or linked finding
+- corrective pass only: how the change reduced, resolved, or failed to reduce the original structural risk
 
 Blocking findings
 
@@ -357,4 +399,4 @@ Before issuing the verdict, ask:
 - Did every selected structural candidate receive an explicit responsibility inventory and assessment rather than a metric-only judgment?
 - Are tests proving behavior or only satisfying mocks and coverage?
 
-For a re-review, automatically rediscover the same active change, recover prior findings from current conversational context when available, and retain the original baseline when it remains valid. Do not require the user to paste the original brief or findings again. Rebuild the Review Brief if the complete diff, governing evidence, scope, or risk materially changed. Do not say "looks good" merely because CI is green: inspect the corrective delta and current complete change, and mark each prior finding `fixed`, `partially fixed`, `not fixed`, `explicitly deferred with acceptable rationale`, or `withdrawn / not applicable`, with evidence supporting that status. A withdrawal must cite evidence disproving the original finding. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Approve only when every remaining issue is truly non-blocking.
+For a re-review, automatically rediscover the same active change, recover prior findings and previously selected structural candidates from current conversational or associated review context when available, and retain the original baseline when it remains valid. Do not require the user to paste the original brief or findings again. Rebuild the Review Brief if the complete diff, governing evidence, scope, or risk materially changed. Do not say "looks good" merely because CI is green: inspect the corrective delta and the final complete implementation for every prior finding. Record each prior finding as `fixed`, `intentionally deferred`, `rejected`, or `still open`; represent partial remediation as `still open — partially remediated`. Rejections must cite evidence disproving the original finding, and deferrals must cite accepted scope and bounded non-blocking risk. Re-run the responsibility inventory for every prior structural candidate rather than inferring closure from functional fixes in the same module. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Apply the corrective approval gate: unresolved prior blockers require `REQUEST CHANGES`, and acknowledged non-blocking residual findings require `APPROVE WITH NOTES` rather than silently disappearing.
