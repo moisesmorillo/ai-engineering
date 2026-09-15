@@ -36,7 +36,7 @@ Before deciding cohesion findings, select candidates. For a PR, inspect material
 
 For every selected candidate, create a concise responsibility inventory: independently evolving responsibilities; mechanics versus policy; architectural owners; concerns that can change or be tested independently; public contracts with separate import/use lifecycles; and knowledge duplicated elsewhere. Conclude explicitly whether the module is cohesive despite size, mixed but low-risk, or has multiple policy owners/credible audit drift. Do not report a large cohesive parser or require arbitrary splitting.
 
-Inspect exported interfaces/types/ports/constants and their consumers. Confirm that consumers do not need to import a concrete implementation just to use an independently owned contract, but preserve useful colocation where the contract is local to that implementation. Follow status/failure/effect/retry/action call chains rather than inspecting helpers in isolation; determine whether they form one hidden matrix or intentionally separate owners. For protocol-heavy candidates, inventory methods, statuses, headers, media types, route fragments, action strings, and protocol markers as families, then search repository-wide for constants, schemas, OpenAPI/routes, parsers/formatters, enums, and classifiers. For candidate public APIs and lifecycle/concurrency helpers, assess whether ownership, cancellation, settlement, effect certainty, resource release, security, and caller obligations are documented at the authoritative abstraction.
+Inspect exported interfaces/types/ports/constants and their consumers. Confirm that consumers do not need to import a concrete implementation just to use an independently owned contract, but preserve useful colocation where the contract is local to that implementation. Follow status/failure/effect/retry/action call chains rather than inspecting helpers in isolation; construct the conceptual matrix and determine whether it has overlapping branches, impossible or missing combinations, action-specific differences, duplicated refusal/retry knowledge, or several independently editable owners—or whether separate layers intentionally own distinct semantics. For protocol-heavy candidates, inventory methods, statuses, headers, media types, route fragments, action strings, and protocol markers as families, then search repository-wide for constants, schemas, OpenAPI/routes, parsers/formatters, enums, and classifiers. Inspect a family collectively even when each literal occurs only once, all are in one file, and no canonical constant exists: the concern is an implicit policy table, not the absence of constants. For candidate public APIs and lifecycle/concurrency helpers, assess whether ownership, cancellation, settlement, effect certainty, resource release, security, and caller obligations are documented at the authoritative abstraction.
 
 If decomposition is warranted, name the independent responsibilities, the drift or audit risk, the semantic boundaries, what remains together, behavior-preserving scope, and tests that protect independently testable policy areas. In the final review, visibly record the candidate assessment and link any resulting finding. Do not write “file is too large,” create a constants junk drawer, require one interface per file, or add boilerplate method comments.
 
@@ -78,23 +78,40 @@ Use the severity model in [`../SKILL.md`](../SKILL.md). Each finding must includ
 
 ## 14. Re-review after fixes
 
-Rediscover the same active change through the discovery checklist, recover prior findings from current conversational context, and retain the original baseline when it is still valid. Do not require the user to repeat the target, original brief, or findings. If the repository or target changed unexpectedly, resolve that ambiguity; if the complete diff, governing evidence, scope, or risk materially changed, rebuild the Review Brief.
+Rediscover the same active change through the discovery checklist, recover prior findings **and previously selected structural candidates** from current conversational or associated review context, and retain the original baseline when it is still valid. Do not require the user to repeat the target, original brief, findings, or candidate list. If the repository or target changed unexpectedly, resolve that ambiguity; if the complete diff, governing evidence, scope, or risk materially changed, rebuild the Review Brief without discarding the prior closure obligations.
 
-Inspect both the corrective delta and the current complete target, then rerun or re-check relevant canonical validation. Fixes can introduce regressions, alter contracts, or address only the visible symptom. For lifecycle or concurrency fixes, verify not only that the original scenario now passes but also that state and responsibility moved to the correct lifetime and layer, the fix is not merely another flag in the wrong abstraction, no stale-state or reset regression was introduced, the invariant is owned by the narrowest correct layer, and the tests reproduce the exact original failure interleaving.
+Build a closure ledger containing every prior actionable finding and its prior severity/blocking status. Inspect both the corrective delta and the current complete target, then rerun or re-check relevant canonical validation. The delta explains what changed; the final implementation establishes whether the finding is closed. Fixes can introduce regressions, alter contracts, or address only the visible symptom. Green tests, nearby changes, and fixed correctness bugs do not close a broader structural or ownership finding.
 
-For every prior finding, record exactly one status:
+For every prior finding, record exactly one disposition:
 
-| Status | Meaning |
+| Disposition | Meaning |
 |---|---|
-| `fixed` | The cause and relevant regression risk are addressed. |
-| `partially fixed` | Some impact remains; explain what and retain appropriate severity. |
-| `not fixed` | The issue remains; cite current evidence. |
-| `explicitly deferred with acceptable rationale` | The owner accepted a bounded non-blocking risk with a credible reason or follow-up. |
-| `withdrawn / not applicable` | New contract or implementation evidence disproves the original finding; cite that evidence and correct the review record. |
+| `fixed` | The final implementation addresses the cause and relevant regression risk. |
+| `intentionally deferred` | An owner or governing scope accepts a bounded residual risk; cite the accepted scope/rationale or follow-up and evidence that it is non-blocking. |
+| `rejected` | New contract, implementation, or reproducer evidence disproves the original finding; cite it and correct the review record. |
+| `still open` | The issue remains in the final implementation; cite current evidence and current severity/blocking status. |
+
+Treat partial remediation as `still open — partially remediated`, not as closure. State concisely what improved and what remains. A compact table or list is enough; do not repeat the full prose for findings already fixed or disproved.
+
+For lifecycle or concurrency fixes, verify not only that the original scenario now passes but also that state and responsibility moved to the correct lifetime and layer, the fix is not merely another flag in the wrong abstraction, no stale-state or reset regression was introduced, the invariant is owned by the narrowest correct layer, and the tests reproduce the exact original failure interleaving.
+
+### Reassess every prior structural candidate
+
+Re-read the complete final module and relevant call chains, even when the corrective diff touched only bugs, tests, routes, headers, or constants. Re-run a concise inventory of current responsibilities; mechanics versus policy; public/exported contracts; protocol knowledge and literal families; lifecycle/concurrency ownership; distributed classifiers/decision tables; repository semantic owners; and independently testable concerns. State whether and how the correction reduced the original risk.
+
+Trace any conceptual `status -> response classification -> application failure -> mutation effect certainty -> retry/pause behavior` pipeline end to end. Assess overlapping, impossible, and missing combinations; action-specific differences; duplicated refusal/retry knowledge; independent edit points; and whether a new status/action requires coordinated changes across helpers. Constants can centralize spelling while leaving policy ownership distributed, so do not infer that extracting them fixed the matrix. Prefer an explicit typed table, canonical classifier, exhaustive dispatch, or equivalent only when it materially improves auditability; do not require a split because a module remains large or replace every `if` with `switch`.
+
+The reassessment may conclude that no structural finding remains, but it must explain the final semantic owners, boundaries, testability, and matrix auditability that justify closure.
 
 ## 15. Close corrective review deliberately
 
-Do not say "looks good" only because CI is now green. Approve only when every previous finding has been verified and all remaining issues are genuinely non-blocking. If a blocking finding is deferred without an acceptable safety rationale, keep the request for changes.
+Emit the compact finding-resolution ledger and the reassessment for every prior structural candidate. Do not say "looks good" only because CI is now green.
+
+- Return `REQUEST CHANGES` while any prior blocking finding remains unresolved. A deferral changes this only when governing policy or an authorized owner explicitly accepts bounded scope and evidence shows the residual no longer blocks approval.
+- Use `APPROVE WITH NOTES` only when every remaining actionable concern is non-blocking and explicitly, credibly dispositioned.
+- Use plain `APPROVE` only when no actionable finding remains.
+
+Fixing functional defects within a structural candidate does not automatically resolve its structural finding. Conversely, structural concerns are not automatically blocking: calibrate severity and disposition from demonstrated residual risk.
 
 ## Review-after-green-CI quick check
 

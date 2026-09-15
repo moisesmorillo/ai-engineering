@@ -8,6 +8,14 @@ Use the internal Review Brief derived by [`review-discovery.md`](review-discover
 
 User-provided focus is additive, not a substitute for these autonomously discovered dimensions. The user should not have to ask separately for architecture, effect-certainty, protocol, lifecycle/concurrency, data-safety, security, or semantic-reuse analysis when the diff and governing repository evidence make those concerns applicable.
 
+## Corrective closure pass
+
+For a corrective review, begin this semantic pass with the prior-finding closure ledger and carried-forward structural-candidate set from discovery. For every prior actionable finding, inspect the final resulting implementation and assign one evidenced disposition: `fixed`, `intentionally deferred`, `rejected`, or `still open`. Use `still open — partially remediated` when a fix reduces but does not eliminate the concern. Tests passing, nearby edits, or a concrete bug fix do not establish closure of a broader ownership or maintainability finding.
+
+Re-run the responsibility inventory for every prior structural candidate over its complete current code and relevant call chain: current responsibilities; mechanics versus policy; public/exported contracts; protocol knowledge; lifecycle/concurrency ownership; distributed classifiers/decision tables; semantic owners; independently testable concerns; and actual reduction of the original risk. Explain a `fixed` or `rejected` structural disposition through changed ownership, clearer boundaries, independent testability, or matrix auditability—not reduced line count or changed literals alone.
+
+Apply the corrective approval gate after this semantic pass: an unresolved prior blocker requires `REQUEST CHANGES`; explicitly dispositioned non-blocking residual concerns require `APPROVE WITH NOTES`; plain `APPROVE` requires no actionable finding. Structural findings are not automatically blocking, and large cohesive files do not require splitting.
+
 ## Responsibilities and architecture
 
 - Does each module, service, or component have one coherent conceptual responsibility?
@@ -77,7 +85,7 @@ Treat reuse as a correctness and ownership question, not a blanket DRY rule. For
 - literals, route strings/fragments, query names, regexes, schemas, serialization formats, HTTP methods, media types, headers, protocol/version markers, lifecycle/event names, and operation/action strings; and
 - error/status codes, storage prefixes, retry limits, timeout values, retry/CAS terms, and business-policy wording.
 
-Treat protocol-sensitive literals as ownership clues. A one-off local `"GET"`, `0`/`1`, a simple index, or a trivial internal label normally does not need a constant. Search repository-wide before claiming a literal should be centralized. Prefer a finding when it is shared protocol policy, must synchronize with server/client/docs/OpenAPI, participates in a decision matrix, already has an owner, affects security/data safety, or has non-obvious semantics. Reuse the owner if it exists; if several sites encode one rule without one, recommend a focused owner rather than a `constants.ts` dumping ground.
+Treat protocol-sensitive literals as ownership clues, not automatic extraction candidates. A one-off local `"GET"` or `404` with no shared policy implications, `0`/`1`, a simple index, or a trivial internal label normally does not need a constant. Conversely, inspect methods (`GET`/`PUT`/`POST`/`DELETE`), statuses (`200`/`201`/`401`/`403`/`404`/`409`/`412`/`428`/`429`/`5xx`), and actions/states (`create`/`update`/`recreate`/`tombstone`, `seal`/`purge`) collectively when they select failure, effect certainty, retryability, or compatibility—even when each literal appears once, all occur in one module, and no canonical constant exists. The question is whether they form a semantic policy matrix with one auditable owner, not whether `404` deserves a name. Search repository-wide before claiming ownership should move. Reuse the owner if it exists; if the matrix has no owner, recommend a focused typed classifier/table/policy representation when that materially improves completeness rather than a `constants.ts` dumping ground. Do not create constants merely to hide numbers or strings.
 
 Classify matches before recommending action:
 
@@ -147,12 +155,15 @@ Check protocol values, statuses, error codes, route paths, media types, headers,
 - Are unrelated literals being centralized only because they happen to share a value?
 - Do mappings such as `status -> protocol failure -> application failure -> effect certainty/retryability`, or `method + route + status -> behavior`, form one policy matrix split across independently editable functions?
 
-For a suspected status/effect/retry matrix, follow the call chain across helpers—such as status to failure kind, failure kind to effect certainty/retryability, and action to expected status—rather than judging one function at a time. First decide whether layers intentionally own different semantics. If they do, preserve that separation and explain the distinction in the review. If they encode one policy, prefer one canonical classifier, explicit decision table, `classify -> exhaustive dispatch`, or an equivalent auditable representation. The issue is not that several functions exist; it is that a new status/method can require uncoordinated edits whose relationship is hidden. Table-test material rows where valuable.
+For a suspected status/effect/retry matrix, follow the complete call chain—such as `HTTP status -> response classifier -> application failure -> mutation effect certainty -> retry/pause behavior`, plus action-specific expected statuses—rather than judging one function at a time. Write down the conceptual rows and assess the matrix as a whole for overlapping branches, impossible combinations, missing combinations, action-specific differences, duplicated refusal/retry knowledge, multiple independently editable owners, and additions requiring edits across several helpers. Individually simple `if` functions can collectively own a complex policy.
+
+First decide whether layers intentionally own different semantics. If they do, preserve that separation and explain the distinction in the review. If they encode one policy, prefer one canonical typed classifier, explicit decision table, `classify -> exhaustive dispatch`, or an equivalent auditable representation when it materially improves completeness. The issue is not that several functions or literals exist; it is that the policy relationship is hidden and can drift. Do not mechanically replace all `if` statements with `switch`. Table-test material rows, invalid cross-products, and action-specific differences where valuable.
 
 Centralize meaning, not coincidental spelling.
 
 - [ ] Structured protocol formats have a canonical parser/formatter; callers do not validate a representation and then manually slice, split, or regex that same representation.
-- [ ] Status/method/route/failure/effect/retry mappings were traced sufficiently to distinguish one hidden policy table from intentional layered ownership.
+- [ ] Status/method/route/failure/effect/retry mappings were traced sufficiently to distinguish one hidden policy table from intentional layered ownership, including collectively meaningful literals that occur only once.
+- [ ] Distributed classifiers were assessed as one conceptual matrix for overlap, impossible/missing rows, action differences, duplicated refusal/retry knowledge, and multi-helper edit requirements.
 
 ## Errors and failure behavior
 

@@ -90,7 +90,7 @@ After the initial diff/concept inventory and before detailed review, deliberatel
 
 Signals include unusual size relative to the repository, many methods or exports, imports spanning architectural concerns, protocol-heavy adapter code, mixing transport/mapping/policy/lifecycle/contracts, distinct helper clusters, repeated status/header/method/action literals, and broad manager/service/adapter/helper modules. Signals choose what to inspect only. They are never a finding and create no line, method, export, or complexity threshold.
 
-For each selected candidate, record a concise responsibility inventory in the Review Brief before evaluating findings:
+For each selected candidate, record a concise responsibility inventory in the Review Brief before evaluating findings. In corrective mode, carry forward every candidate selected by the prior review even when it is absent from or only lightly touched by the corrective delta; the final implementation, not recent line churn, determines whether its structural risk remains.
 
 - independently evolving responsibilities, distinguishing mechanics from policy;
 - architectural owner(s), concerns that can change independently, and concerns that require different tests;
@@ -109,6 +109,7 @@ Build a concise working brief before evaluating findings. It is primarily an int
 
 - repository root and relevant worktree;
 - initial, corrective, or repository-wide review mode;
+- for corrective mode, a closure ledger of every prior actionable finding (identifier/title, prior severity, and prior blocking status) and the carried-forward structural-candidate set;
 - branch/PR/range, base, merge base, local and hosted heads when applicable, and selection rationale;
 - included committed changes and intentional working-tree overlay;
 - explicit exclusions and unresolved target limitations.
@@ -177,10 +178,14 @@ Do not blindly make a test authoritative when it is stale, encodes a known bug, 
 
 ## 7. Corrective and repository-wide reviews
 
-On corrective re-review, automatically rediscover the same active PR/change, retain the original baseline when still valid, and recover prior findings and focus from current conversational context. Do not require the user to paste them again. Verify each prior finding individually, inspect the corrective delta for regressions, and review the current complete change. Rebuild the Review Brief when the diff, governing evidence, scope, or risk materially changed; if repository/target state switched unexpectedly, resolve that ambiguity before issuing findings.
+On corrective re-review, automatically rediscover the same active PR/change, retain the original baseline when still valid, and recover prior findings, prior severity/blocking status, focus, and every previously selected structural candidate from current conversational or associated review context. Do not require the user to paste them again. If complete prior review evidence is genuinely unavailable, state the gap and recover what can be established from hosted review comments or repository artifacts rather than silently treating the corrective pass as finding-free.
+
+Verify every prior actionable finding individually against the final resulting implementation, not only the corrective diff. Assign exactly one disposition—`fixed`, `intentionally deferred`, `rejected`, or `still open`—with evidence; record partial remediation as `still open — partially remediated`. Preserve the closure ledger even when the Review Brief is rebuilt because the diff, governing evidence, scope, or risk materially changed. Rejections require new evidence disproving the original finding; deferrals require accepted scope/rationale and evidence that residual risk is bounded and non-blocking.
+
+Carry prior structural candidates into the new brief and re-run their concise responsibility inventory over the final code and relevant call chains: current responsibilities, mechanics versus policy, public/exported contracts, protocol knowledge, lifecycle/concurrency ownership, distributed classifiers/decision tables, semantic owners, independently testable concerns, and whether the correction reduced the original risk. A file need not be split because it remains large, but a structural concern cannot disappear merely because correctness bugs or nearby constants were fixed. If repository/target state switched unexpectedly, resolve that ambiguity before issuing findings.
 
 Normal invocation reviews the active change, not every line of the repository. Construct a repository-wide brief only when the user explicitly requests an audit/baseline review or explicitly establishes that task when no change target exists. Repository-wide searches for semantic ownership and reuse remain required where relevant to changed concepts, but they do not authorize a total redesign.
 
 ## 8. User-visible context
 
-Do not force a long discovery report before the review. Normal use should remain one command producing one review. When useful, include only a short context summary in the final report: target/range, governing spec or ADR, intentional local overlay, and principal risks. Do not dump the internal search process or Review Brief checklist, but visibly include concise assessments for the selected structural candidates so the reviewer does not silently skip cohesion, contract placement, distributed policy, literal ownership, or documentation.
+Do not force a long discovery report before the review. Normal use should remain one command producing one review. When useful, include only a short context summary in the final report: target/range, governing spec or ADR, intentional local overlay, and principal risks. Do not dump the internal search process or Review Brief checklist, but visibly include concise assessments for structural candidates selected now or carried from a prior review so the reviewer does not silently skip cohesion, contract placement, distributed policy, literal ownership, or documentation. In corrective mode, also emit the compact finding-resolution ledger; resolved findings need no verbose repetition.
