@@ -10,24 +10,37 @@ Review whether a change is safe, correct, coherent, and maintainable—not merel
 
 ## Authority and scope
 
-Before reviewing, read the target repository's applicable `AGENTS.md`, contributing guide, architecture documents, ADRs, CI configuration, and nearby established conventions. Those sources override this skill's defaults. Do not mechanically impose Clean Architecture, file layouts, test locations, documentation formats, aliases, or tools on a project that intentionally uses another approach.
+After discovering the target and inspecting its complete diff, locate the target repository's applicable `AGENTS.md`, contributing guide, architecture documents, ADRs, milestone/spec/plan, CI configuration, tests, and nearby established conventions. Let changed concepts and affected paths guide this search; do not read every document blindly. Repository evidence overrides this skill's defaults. Do not mechanically impose Clean Architecture, file layouts, test locations, documentation formats, aliases, or tools on a project that intentionally uses another approach.
 
-Keep findings within the change's risk surface. Inspect surrounding code when needed to establish a contract or invariant, but do not turn a focused review into an unrelated redesign.
+Keep findings within the change's risk surface and accepted delivery boundary. Inspect surrounding code and search repository-wide for semantic owners when needed to establish a contract or invariant, but do not turn a focused review into an unrelated redesign or report explicitly deferred later-phase behavior as missing.
+
+## Normal invocation
+
+The intended day-to-day invocation is simply:
+
+```text
+/skill:code-review
+```
+
+The reviewer must autonomously discover the active repository, change or PR, correct baseline, relevant repository context, risk dimensions, and canonical validation. The user should not normally need to provide a repository URL, PR number, base SHA, milestone, slice, mini review brief, or prompts to check inferable concerns such as effect certainty, architecture boundaries, protocol validation, ADR compliance, lifecycle races, or semantic reuse.
+
+An explicit user target, range, repository, context, or focus is an override or additive focus, not a prerequisite and not a replacement for autonomous discovery. If the environment genuinely cannot identify a safe target or baseline, ask one concise question for only the missing information rather than guessing.
 
 ## Review workflow
 
-Use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered PR workflow. Use [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md).
+Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios.
 
 At minimum:
 
-1. Establish local rules, intended behavior, acceptance criteria, and risk.
-2. Inspect automated checks and meaningful diagnostics.
-3. Read the actual diff, affected implementation, and affected tests.
-4. Review architecture, control flow, failure behavior, data safety, security, operability, and compatibility.
-5. Review test semantics and coverage—not just test counts or percentages.
-6. Perform a final manual semantic pass after automation.
-7. Report only specific, evidenced, actionable findings.
-8. On corrective review, verify every prior finding individually.
+1. Discover the repository, complete review target, correct baseline/range, and any intentional working-tree overlay.
+2. Inspect the complete diff, identify changed concepts, and derive an evidence-backed internal Review Brief from relevant repository sources.
+3. Inspect automated checks, canonical validation, and meaningful diagnostics.
+4. Read affected implementation, tests, semantic owners, and surrounding contracts.
+5. Review architecture, control flow, failure behavior, data safety, security, lifecycle/concurrency, operability, and compatibility in proportion to discovered risk.
+6. Review test semantics and coverage—not just test counts or percentages.
+7. Perform a final manual semantic pass after automation.
+8. Report only specific, evidenced, actionable findings.
+9. On corrective review, recover and verify every prior finding individually while checking the fix for regressions.
 
 ## Core decision heuristics
 
@@ -239,8 +252,15 @@ If no actionable finding exists, explicitly approve. Do not manufacture findings
 
 ## Default output
 
+The Review Brief remains internal. Include the optional short `Review context` only when it helps the reader understand the target, governing evidence, intentional scope boundary, or principal risk; do not emit a long preliminary discovery report.
+
 ```text
 Verdict: REQUEST CHANGES / APPROVE WITH NOTES / APPROVE
+
+Review context (optional)
+- target: PR/branch/range and any intentional working-tree overlay
+- governing evidence: relevant spec/ADR/contract and explicit scope boundary
+- principal risks: only the highest-value discovered review dimensions
 
 Blocking findings
 
@@ -284,4 +304,4 @@ Before issuing the verdict, ask:
 - Is the implementation simpler or more complicated than necessary?
 - Are tests proving behavior or only satisfying mocks and coverage?
 
-For a re-review, do not say "looks good" merely because CI is green. Mark each prior finding `fixed`, `partially fixed`, `not fixed`, `explicitly deferred with acceptable rationale`, or `withdrawn / not applicable`, with evidence supporting that status. A withdrawal must cite evidence disproving the original finding. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Approve only when every remaining issue is truly non-blocking.
+For a re-review, automatically rediscover the same active change, recover prior findings from current conversational context when available, and retain the original baseline when it remains valid. Do not require the user to paste the original brief or findings again. Rebuild the Review Brief if the complete diff, governing evidence, scope, or risk materially changed. Do not say "looks good" merely because CI is green: inspect the corrective delta and current complete change, and mark each prior finding `fixed`, `partially fixed`, `not fixed`, `explicitly deferred with acceptable rationale`, or `withdrawn / not applicable`, with evidence supporting that status. A withdrawal must cite evidence disproving the original finding. For lifecycle or concurrency fixes, passing the original scenario is not enough: verify that state and responsibility moved to the correct lifetime and layer, that the fix is not merely another flag in the wrong abstraction, that it introduces no stale-state or reset regression, that the invariant is owned by the narrowest correct layer, and that tests exercise the exact original failure interleaving. Approve only when every remaining issue is truly non-blocking.

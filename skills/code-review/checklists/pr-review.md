@@ -1,36 +1,36 @@
-# Pull Request Review Workflow
+# Change and Pull Request Review Workflow
 
-Follow this order for an initial review. Increase depth for high-risk changes; do not skip the final semantic pass because automation is green.
+Follow this order for an initial review of a PR, branch, commit range, working-tree change, or explicit repository-wide audit. Increase depth for high-risk changes; do not skip the final semantic pass because automation is green.
 
-## 1. Read repository instructions first
+## 1. Discover the review target and context
 
-Locate and read applicable `AGENTS.md`, contribution instructions, architecture docs, ADRs, API contracts, CI configuration, and conventions in the changed area. Record which rules are authoritative. Do not substitute this skill's defaults for an intentional local design.
+Run [`review-discovery.md`](review-discovery.md) before evaluating findings, including for a no-argument `/skill:code-review` invocation. Resolve the repository, target, baseline/range, intentional local overlay, governing evidence, accepted scope, semantic owners, risk profile, and canonical validation into the internal Review Brief. An explicit user target overrides automatic target selection; user focus remains additive to autonomous discovery.
 
-## 2. Understand the intended change
+If discovery leaves materially different targets or baselines plausible, ask one concise question and stop before findings. Do not guess. Keep the detailed precedence and evidence-conflict algorithm owned by the discovery checklist rather than duplicating it here.
 
-Read the PR description, issue, acceptance criteria, and migration or rollout notes. Identify:
+## 2. Confirm the complete diff and intended change
 
-- intended externally observable behavior;
-- explicit non-goals;
-- affected users, callers, data, and boundaries;
-- compatibility and rollout expectations;
-- the highest-risk failure scenario.
+Read every production, test, configuration, schema, generated, dependency, and documentation file in the Review Brief's complete range, including any intentionally included working-tree overlay. Watch for scope creep, generated or lockfile churn, hidden deletions, changed defaults, and behavior split across commits or files. Do not review only the latest commit of a multi-commit change.
 
-If intent is unclear, ask focused questions rather than inferring a defect.
+Confirm the brief's intent against the actual diff, applicable repository instructions, current contracts/design evidence, tests, and established conventions. Treat PR/issue descriptions as supporting evidence rather than authority. Verify:
+
+- intended externally observable behavior and accepted architectural direction;
+- explicit current-slice non-goals and deferred behavior;
+- affected users, callers, data, trust boundaries, and semantic concepts;
+- compatibility, migration, rollout, lifecycle, and recovery expectations where applicable;
+- the highest-risk failure scenarios.
+
+Use changed concepts to locate relevant documentation; do not begin by reading every document in the repository. Resolve meaningful evidence conflicts under the discovery checklist. If unresolved intent prevents a safe conclusion, ask a focused question rather than inferring a defect.
 
 ## 3. Inspect CI and check status
 
-Identify which commit was checked and what each required job actually runs. Distinguish passed, failed, skipped, allowed-to-fail, and absent checks. Green CI is an input to review, not the conclusion.
+Identify which commit was checked and what each required job actually runs. Compare the checked commit and range with the Review Brief's target. Distinguish passed, failed, skipped, allowed-to-fail, and absent checks. State explicitly when an included staged, unstaged, or untracked overlay has no remote CI evidence. Green CI is an input to review, not the conclusion.
 
-## 4. Inspect the actual diff
+## 4. Inspect surrounding implementation
 
-Read every changed production, test, configuration, schema, generated, dependency, and documentation file. Watch for scope creep, generated or lockfile churn, hidden deletions, changed defaults, and behavior split across commits or files.
+Follow callers, callees, shared contracts, types, schemas, persistence operations, and package boundaries far enough to validate the complete change. Do not review only patch hunks when behavior depends on unchanged code. Use the Review Brief's changed-concept inventory to inspect repository-wide owners and relevant contracts proportionately.
 
-## 5. Inspect surrounding implementation
-
-Follow callers, callees, shared contracts, types, schemas, persistence operations, and package boundaries far enough to validate the change. Do not review only the patch hunk when behavior depends on unchanged code.
-
-## 5a. Perform the repository-wide duplication and reuse audit
+## 5. Perform the repository-wide duplication and reuse audit
 
 For each changed or newly introduced protocol, business, storage, security, or lifecycle concept, search the repository—not only the diff—for existing helpers, types, schemas, constants, route strings, regexes, serialization formats, error/status codes, storage prefixes, and policy wording. Classify matches as textual, structural, or semantic duplication; identify the authoritative owner and existing primitive; and report only concrete drift, boundary, or reuse risks. Do not turn this step into a blanket DRY rule: preserve local code when semantics or policies intentionally differ.
 
@@ -68,7 +68,9 @@ Use the severity model in [`../SKILL.md`](../SKILL.md). Each finding must includ
 
 ## 13. Re-review after fixes
 
-Inspect the new diff and rerun or re-check the relevant validation. Fixes can introduce regressions, alter contracts, or address only the visible symptom. For lifecycle or concurrency fixes, verify not only that the original scenario now passes but also that state and responsibility moved to the correct lifetime and layer, the fix is not merely another flag in the wrong abstraction, no stale-state or reset regression was introduced, the invariant is owned by the narrowest correct layer, and the tests reproduce the exact original failure interleaving.
+Rediscover the same active change through the discovery checklist, recover prior findings from current conversational context, and retain the original baseline when it is still valid. Do not require the user to repeat the target, original brief, or findings. If the repository or target changed unexpectedly, resolve that ambiguity; if the complete diff, governing evidence, scope, or risk materially changed, rebuild the Review Brief.
+
+Inspect both the corrective delta and the current complete target, then rerun or re-check relevant canonical validation. Fixes can introduce regressions, alter contracts, or address only the visible symptom. For lifecycle or concurrency fixes, verify not only that the original scenario now passes but also that state and responsibility moved to the correct lifetime and layer, the fix is not merely another flag in the wrong abstraction, no stale-state or reset regression was introduced, the invariant is owned by the narrowest correct layer, and the tests reproduce the exact original failure interleaving.
 
 For every prior finding, record exactly one status:
 
