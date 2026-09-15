@@ -124,16 +124,65 @@ Use a review NOTE/NIT or MINOR for adapter-flavored vocabulary that does not cre
 
 Evaluate whether independent execution paths make behavior, invalid states, security invariants, test coverage, or future changes hard to reason about. Where tooling provides cyclomatic or cognitive-complexity metrics, inspect them; otherwise estimate qualitatively from independent conditions, boolean operators, nesting, repeated guards, and state transitions. Do not introduce tooling or dependencies solely to obtain a number unless requested. Complexity is one signal alongside correctness, architecture, security, tests, performance, and maintainability—not a target number.
 
-Inspect especially protocol/token parsers (including conditional headers), authorization and permission state, concurrency/CAS and synchronization, retries/effect certainty and idempotency, lifecycle transitions, configuration state, recovery/tombstone/deletion flows, and other state machines for:
+Inspect especially validators, consistency checkers, protocol/token classifiers and parsers, authorization and permission state, concurrency/CAS and synchronization, retries/effect certainty and idempotency, lifecycle transitions, configuration state, recovery/tombstone/deletion flows, and other state machines for hidden decision matrices, including:
 
-- long boolean expressions or repeated conditions whose combinations form a decision matrix;
-- one function mixing classification, validation, policy, variant parsing, and domain-object construction;
-- implicit state-machine transitions, loosely related booleans, or duplicated parsing/validation logic; and
-- tests that cover lines or individual cases without mapping clearly to valid and invalid combinations.
+- multiple independent invariant families owned by one function;
+- repeated inspection of the same discriminant across separate branches;
+- mutually exclusive closed variants encoded through negative checks, priority, fallthrough, or a final catch-all path rather than explicit exhaustive handling;
+- business or state-machine compatibility tables encoded as condition order;
+- global invariants mixed with per-entity, per-item, or per-path invariants;
+- logic that requires the reader to reconstruct valid state/action combinations mentally;
+- booleans that irreversibly collapse materially different invalid states before callers, tests, migrations, or operations can use the reason;
+- one function mixing classification, validation, policy, variant parsing, and domain-object construction; and
+- tests that cover lines or isolated cases without mapping clearly to valid and invalid combinations.
 
-Do not flag branch count mechanically. Several obvious early-return guards, a short exhaustive switch over a discriminated union, and straightforward per-condition validation can be preferable to abstraction. For a closed protocol or state matrix, consider `classify -> exhaustive dispatch -> variant-specific handling`, or an equivalent explicit state-machine/decision table. Prefer discriminated unions and exhaustive switches when they make completeness and invalid states materially more visible; do not prescribe this shape when a few guards are simpler.
+Prefer a finding when one function owns several semantically distinct invariant families; a closed union is handled implicitly and policy completeness is obscured; conditions form a state/action compatibility matrix; adding a variant would require edits in several distant branches that are easy to miss; security-, data-safety-, protocol-, or lifecycle-critical policy is materially harder to audit; or operationally important failure reasons are collapsed too early. Prefer no finding when guards are a short linear precondition list, all conditions express one semantic rule, exhaustive structure would add verbosity without exposing policy, or helper extraction would only fragment readable local logic.
 
-Complexity alone is usually a non-blocking MINOR or review NOTE. Raise it to MAJOR when the structure materially increases the chance of an unreviewed correctness or security gap in authorization, destructive operations, concurrency/CAS, retries/idempotency, lifecycle/state transitions, recovery/deletion, or protocol acceptance. Do not use BLOCKER solely for complexity without a concrete correctness or security failure.
+### Preferred structural patterns
+
+Decompose by semantic invariant ownership, not by branch count. For example:
+
+```text
+validateDeviceState()
+  ├─ validateLifecycle()
+  ├─ validateIdentifierUniqueness()
+  ├─ validateHandoff()
+  ├─ validateDrainedState()
+  └─ validatePathState()
+       ├─ validateUnresolvedMutation()
+       └─ validateDesiredState()
+```
+
+For a closed protocol or state matrix, consider `classify -> exhaustive dispatch -> focused variant validation`, an explicit decision table, or another representation that makes completeness visible. An exhaustive `switch` can be appropriate when each discriminated-union variant has different rules:
+
+```ts
+switch (ack.kind) {
+  case "unassociated":
+  case "live":
+  case "tombstone":
+}
+```
+
+Do not prescribe `switch` when a map, table, classifier, or a few guards are clearer. Do not create one helper per `if`, introduce a generic validation framework, require a `Result` or error type for a trivial predicate, or add abstraction merely to reduce visible complexity.
+
+When invalid-state identity materially improves corrupt-state diagnosis, tests, operational debugging, migrations, or lifecycle work, consider an internal diagnostic result while retaining a public boolean facade where useful:
+
+```ts
+type ValidationResult =
+  | { kind: "valid" }
+  | { kind: "invalid"; reason: ValidationFailureReason };
+```
+
+Do not require diagnostic validation for every validator. The finding must identify who can use the reason and why losing it matters.
+
+### Finding and severity calibration
+
+Do not flag branch count mechanically. Several obvious early-return guards, a short exhaustive switch over a discriminated union, and straightforward per-condition validation can be preferable to abstraction.
+
+- **NOTE/NIT:** local readability issue without meaningful drift or audit risk.
+- **MINOR:** a hidden decision matrix or mixed invariant ownership makes future changes error-prone, but current behavior appears correct.
+- **MAJOR:** implicit state handling creates a credible correctness, safety, security, lifecycle, protocol, or drift risk—for example, a variant can be silently omitted or conflicting policies are encoded in distant branches.
+- **BLOCKER:** only when there is a concrete severe defect; complexity alone is never a blocker.
 
 A complexity finding must include the severity, exact function/file, why the paths increase reasoning risk, the mixed responsibilities, a concrete lower-complexity shape, whether behavior can remain unchanged, and tests that should protect the refactor. Explain the failure or audit scenario; never write only “too many if statements.” High coverage does not excuse a decision matrix when interactions remain hard to audit: ask whether tests map to its decisions and whether mutation testing could expose untested branch interactions. Conversely, do not demand refactoring when simple control flow and tests make completeness obvious.
 

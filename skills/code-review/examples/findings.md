@@ -293,3 +293,23 @@ The dependency points inward: core defines the capability and the Worker adapter
 **Do not manufacture a finding:** `StoredLiveCurrentGeneration`, `StoredTombstoneCurrentGeneration`, or persistence-oriented port names are not automatically wrong. Report a stronger **MAJOR** finding only if core imports `R2Object`, exposes bucket keys/custom metadata/storage ETags, depends on `format: 2` or raw envelope shapes, or otherwise imports/embeds Worker adapter semantics. In that case, move an application-owned observation/port DTO into core and translate the SDK/persisted representation in infrastructure.
 
 **Why the strong version is better:** It distinguishes correct dependency inversion from optional vocabulary refinement, identifies the exact owner and translation boundary, and reserves a major finding for concrete infrastructure or representation leakage.
+
+## 17. Validator hides a decision matrix despite simple guards
+
+**Severity:** MINOR when current behavior appears correct; raise to MAJOR only with a credible correctness, safety, security, lifecycle, protocol, or drift risk.
+
+**Bad finding wording**
+
+> Too many if statements.
+
+**Strong finding wording**
+
+> **[MINOR] Independent mirror-state policies are hidden in one boolean decision chain**
+> **Location:** `src/mirror/mirror-state-validation.ts:20-180`
+> **Why it matters:** This validator encodes lifecycle, identity uniqueness, ACK/action compatibility, retry-budget, and desired-state rules in one boolean decision chain. Each guard is simple, but the combined state matrix is implicit, so adding a new acknowledgement or lifecycle variant can require edits in multiple distant branches.
+> **Evidence:** Global capacity and handoff rules share the function with per-path mutation ownership, acknowledgement/action compatibility, revision matching, and desired-state authority. The same closed discriminants are inspected in separate positive and negative checks, so completeness is not visible at one dispatch point. Current behavior appears correct.
+> **Recommended direction:** Consider decomposing by invariant family and exhaustively dispatching closed variants where that exposes policy. Preserve behavior, keep ordinary guards for local preconditions, and use table-driven tests for compatibility rows and invalid cross-products. This is MINOR maintainability/auditability, not a correctness MAJOR.
+
+A diagnostic validator can be a separate, optional improvement when corrupt-state diagnosis, tests, operations, or migrations need the exact failed invariant. A boolean facade may remain public. Do not require a diagnostic result solely for elegance, create one helper per guard, prescribe `switch` everywhere, or introduce a generic validation abstraction.
+
+**Why the strong version is better:** It identifies the independent invariant families and the future variant-drift risk rather than scoring branch count. It proposes semantic decomposition and selective exhaustive handling, acknowledges that current behavior appears correct, and calibrates severity accordingly.

@@ -60,7 +60,7 @@ Review lines, statements, functions, and branches where available. Check source 
 
 ## 11. Perform the manual semantic review
 
-Use [`semantic-review.md`](semantic-review.md). Ask whether the implementation is correct, preserves invariants, handles failures, protects data, keeps architecture coherent, and stays no more complex than necessary.
+Use [`semantic-review.md`](semantic-review.md). Ask whether the implementation is correct, preserves invariants, handles failures, protects data, keeps architecture coherent, and stays no more complex than necessary. Explicitly trace changed validators, consistency checkers, protocol classifiers, lifecycle code, and state machines for independent invariant families and hidden state/action matrices; do not infer simplicity from shallow nesting, individually simple guards, or green branch coverage.
 
 ## 12. Classify and write findings
 
