@@ -52,15 +52,90 @@ These are framework-specific checks, not universal TypeScript policy.
 
 ## Documentation
 
-Where the project uses TSDoc:
+This section owns TypeScript declaration coverage and TSDoc/JSDoc quality rules. Use the [semantic documentation audit](../checklists/semantic-review.md#documentation-completeness-and-quality) for audit scope, repository-wide aggregation, severity, and corrective closure.
 
-- document a public/exported declaration at its authoritative abstraction when callers need non-obvious invariants, units, side effects, security semantics, ownership/lifecycle, concurrency behavior, failure/effect semantics, resource-release requirements, or obligations;
-- nontrivial internal contracts should explain invariants or lifecycle expectations when not evident from types;
-- type-only declarations should explain units, meaning, valid combinations, or security implications when non-obvious;
-- `@throws`, side effects, mutation, nullability, and async lifecycle should be documented when they are part of the caller contract; and
-- do not duplicate boilerplate on an implementation method that satisfies an already well-documented interface unless implementation-specific semantics differ.
+**In TypeScript repositories using TSDoc/JSDoc-style documentation, every named semantic declaration should have useful TSDoc unless a strong, evidenced repository convention says otherwise.** Discover that convention from applicable instructions, tooling, and representative source across relevant packages. Cite an intentional alternative (including established inherited-contract documentation); widespread omissions alone do not prove an exemption. Private visibility, small size, or an apparently obvious name does not exempt a named declaration from review. If the repository intentionally uses another established documentation convention, assess completeness and semantic quality in that convention rather than imposing TSDoc.
 
-Do not require TSDoc universally when the repository uses another documented convention, and do not request comments that only restate names or types.
+### Declaration inventory
+
+Inventory named declarations in changed TypeScript files, not only exported APIs or structural candidates. Prioritize introduced or materially changed declarations; inspect nearby existing declarations when the changed contract depends on them or they reveal a systemic violation materially affecting the change. Do not turn a focused PR into an unrelated full-repository cleanup. In explicit repository-wide mode, inventory across production source roots and apply the semantic checklist's completeness audit.
+
+Evaluate documentation for:
+
+- exported and internal/free functions, including named function-valued bindings such as `const decode = (...) => ...`;
+- public, protected, and private methods (including `#private` methods), named object methods, and accessors;
+- classes, and constructors when construction has non-obvious semantics;
+- interfaces, type aliases, ports/capabilities/contracts, discriminated unions, and branded/domain IDs, even when implementation-local;
+- enums, enum-like authoritative constant objects, and meaningful domain/runtime constants;
+- named runtime schemas and architecturally meaningful inferred DTO aliases; and
+- properties/fields whose meaning, units, authority, lifecycle, nullability, security significance, or valid combinations are not obvious.
+
+Do not require separate TSDoc for anonymous callbacks/lambdas merely because they exist, ordinary local variables, trivial destructuring, individual schema-chain calls, obvious one-off literals, generated code, or third-party/vendor code. A local binding that defines a named function, semantic schema, or domain constant is not exempt merely because it uses `const` or lives inside another function. A local `z.infer` alias without a distinct architectural role does not need a mechanical separate comment.
+
+### Semantic quality, not comment count
+
+Classify each in-scope declaration as **missing**, **present but semantically empty**, or **useful contract documentation**; record evidenced exemptions separately. Present but stale/incorrect comments also fail review—identify the contradiction, not just the presence of a block. No tag count or comment length establishes usefulness.
+
+Useful documentation captures what a future maintainer cannot safely infer from syntax alone, as applicable: responsibility and semantic role; ownership and authority; invariants; preconditions and postconditions; state transitions; units; side effects and mutation; concurrency/lifecycle, cancellation and settlement; security/privacy; failure/effect certainty; resource ownership/release; persistence compatibility; downgrade/migration boundaries; and what the declaration intentionally must **not** do. Use `@throws` and other tags when they clarify a real contract, not to repeat parameters or obvious return types. Verify claims against implementation, callers, tests, and governing contracts; do not invent guarantees to fill a comment.
+
+`/** Gets the user. */`, `/** Converts state. */`, or `/** User ID. */` is semantically empty when lookup authority, compatibility, or identity scope is the actual contract. Neither paraphrasing a name nor narrating trivial implementation mechanics resolves a finding. Concise comments can be sufficient: document the relevant role or constraint, not every item in the list above.
+
+### Internal helpers and private methods
+
+Explicitly audit private/protected methods implementing state transitions, persistence, retry policy, security decisions, validation, reconciliation, lifecycle fencing, effect classification, migration, or protocol mapping. A class-level comment does not cover a method's distinct preconditions/effects. Free/internal conversion helpers also need their own semantic contracts: an exported decoder's good TSDoc does not automatically document its helper tail.
+
+For historical codecs, inspect device-state, lifecycle, path-state, acknowledgement, desired-state, unresolved-mutation, staged-handoff, transferable-acknowledgement, identifier, and precondition converters where present. Explain exact predicate/revision reconstruction, frozen compatibility, migration boundaries, state-machine and handoff safety obligations where each applies. Do not copy the same broad promise onto every helper without checking its actual role.
+
+For example, replace `/** Converts a device state. */` with an evidenced contract such as:
+
+```ts
+/**
+ * Rehydrates the frozen M3 v2 DTO into its exact domain representation.
+ *
+ * Performs typed identifier/path reconstruction only. It must not migrate,
+ * repair, normalize, or reinterpret historical persisted state.
+ */
+function convertDeviceState(dto: DeviceStateDto): DeviceState { /* ... */ }
+
+/**
+ * Reconstructs one validated persisted mutation intent without changing its
+ * action, original predicate, retry counters, or effect-recovery semantics.
+ *
+ * This compatibility decoder must never refresh predicates from newer remote state.
+ */
+function convertUnresolvedMutation(dto: MutationDto): Mutation { /* ... */ }
+```
+
+For truly mechanical private delegation, a short one-line TSDoc identifying the delegated contract/owner is acceptable. Where the repository supports it, use a resolvable inherited-contract reference instead of copying interface prose; verify identical semantics and document implementation-specific effects separately. Without such an evidenced convention, do not silently exempt implementations. A trivial named helper such as `byteLength()` still enters the inventory; a short unit/encoding contract is enough, and its isolated omission is not a high-severity standalone finding.
+
+### Types, interfaces, and constants
+
+For named types/interfaces, explain whether the representation is domain, DTO, persistence, protocol, or adapter-local, and its owner. Cover units, valid state combinations, lifecycle, security meaning, compatibility/versioning obligations, and whether fields carry authoritative evidence or merely observations where applicable. Clarify whether `null` means absent, unknown, not-applicable, or pending. Domain/branded IDs need identity scope and relevant validity/authority semantics, not just “ID.” Private/local interfaces are not exempt.
+
+Document meaningful constants and authoritative enum-like objects with their semantic role, policy owner, units, or compatibility constraints—not merely their numeric/string values. Review field-specific semantics at the field when they would otherwise be lost; do not demand comments on every obvious property or enum member.
+
+### Zod and other runtime schemas
+
+A named schema representing persisted state, protocol requests/responses, configuration, handoff payloads, security-sensitive validation, migration compatibility, or domain state is a semantic contract regardless of export visibility. Document its purpose, boundary/owner, accepted version, and constraints that must survive edits. Document the schema as a whole, not every `.object()`, `.string()`, or `.enum()` call; add field-level documentation only for non-obvious semantics.
+
+Illustrative excerpts (the comment must match the actual schema and compatibility tests):
+
+```ts
+/**
+ * Frozen persisted M3 device-state v2 schema.
+ *
+ * Used only to decode historical state for migration. It must not be widened to
+ * accept M4/v3 fields or future formats.
+ */
+const deviceStateSchema = z.object({ /* frozen v2 fields */ }).strict();
+
+/** DTO accepted by the frozen v2 persisted-state schema before domain rehydration. */
+type DeviceStateDto = z.infer<typeof deviceStateSchema>;
+```
+
+Require a separate inferred-type comment when the alias has a meaningful architectural role, such as distinguishing a validated persisted DTO from rehydrated domain state. Do not mechanically document every local `z.infer`. Schema TSDoc must agree with actual parsing, unknown-key, transform/refinement, and version behavior; a claim of frozen acceptance does not make a permissive parser safe.
+
+See [documentation review examples](../examples/documentation-review.md) for PR, baseline, private-method, schema, and corrective calibration.
 
 ## File conventions
 

@@ -1,12 +1,12 @@
 # Semantic Review Checklist
 
-Use this after automated checks and an initial diff read. Apply each section in proportion to the change's risk and the target repository's documented design. This is a prompt for investigation, not a mandate to report one finding per section.
+Use this after automated checks and an initial diff read (or source inventory for an explicit baseline review). Apply each section in proportion to the target's risk and the repository's documented design. This is a prompt for investigation, not a mandate to report one finding per section.
 
 ## Review Brief integration
 
 Use the internal Review Brief derived by [`review-discovery.md`](review-discovery.md) as the evidence map for this pass. Test candidate findings against its current-slice acceptance criteria, governing contracts, explicit invariants, semantic owners, risk profile, and scope boundaries. Do not report explicitly deferred behavior as missing, turn unresolved uncertainty into a defect, or apply a fixed checklist severity without evidence from the actual change. If detailed review exposes a new changed concept, contract conflict, or material risk, update the brief and perform the corresponding targeted repository search before concluding.
 
-User-provided focus is additive, not a substitute for these autonomously discovered dimensions. The user should not have to ask separately for architecture, effect-certainty, protocol, lifecycle/concurrency, data-safety, security, or semantic-reuse analysis when the diff and governing repository evidence make those concerns applicable.
+User-provided focus is additive, not a substitute for these autonomously discovered dimensions. The user should not have to ask separately for documentation completeness/quality, architecture, effect-certainty, protocol, lifecycle/concurrency, data-safety, security, or semantic-reuse analysis when the diff and governing repository evidence make those concerns applicable.
 
 ## Corrective closure pass
 
@@ -222,19 +222,48 @@ Scale expectations to operational needs and repository conventions.
 - Is logging infrastructure leaking into domain/core code rather than being passed through an appropriate boundary?
 - Are important state transitions or terminal failures invisible in an operationally significant path?
 
-## Documentation
+## Documentation completeness and quality
 
-Review documentation quality, not mere presence. For selected candidate public APIs and lifecycle/concurrency helpers, explicitly assess ownership, cancellation, settlement, effect certainty, resource release, security semantics, and caller obligations at the authoritative abstraction. Do not require docstrings for every function or method, and do not reward AI-generated narration.
+This section owns the language-agnostic documentation audit workflow, aggregation, severity, and closure checks. Run it as a maintainability dimension even without a user request to check documentation; it is not limited to public APIs or structural candidates. Discover languages and documentation conventions first. Language-specific declaration coverage and examples belong in the applicable profile: for TypeScript, apply the [TSDoc declaration audit](../profiles/typescript.md#documentation).
 
-- Is the authoritative public/exported abstraction documented when callers need non-obvious invariants, side effects, security semantics, ownership/lifecycle, concurrency behavior, failure/effect semantics, resource-release requirements, or caller obligations?
-- Can a caller understand important failure and lifecycle behavior without reading the implementation?
-- For implementation methods satisfying a well-documented interface, would duplicated boilerplate TSDoc add anything?
-- Are surprising semantics documented at the contract owner rather than repeated across interface and implementation?
-- Do comments explain why rather than restate what the syntax already says?
-- Are comments stale, misleading, or written as implementation-history/AI narrative rather than durable guidance?
-- Is obvious trivial code being burdened with unnecessary documentation?
+### Scope and evidence
 
-Good documentation explains contracts and invariants. `/** Reads a note. */ readNote(...)` is narration, not useful documentation.
+For PR/change reviews, prioritize introduced or materially changed contracts. Inspect nearby existing declarations when needed to understand the change or when a systemic convention violation materially affects it. Repository-wide search can establish evidence without making unrelated historical cleanup part of the PR.
+
+For explicit repository-wide/baseline reviews, perform a dedicated completeness audit:
+
+1. Identify production source roots from workspace/build configuration and repository structure. Record exclusions with evidence: generated output, vendor/third-party code, and non-production fixtures/tests as appropriate; do not exempt a hand-maintained internal module by visibility.
+2. Inventory named declarations across production source, using the applicable language profile. Keep a compact working record of path/symbol, declaration kind/visibility, documentation status, semantic owner, and any evidenced exemption. Search/AST tooling can enumerate candidates; a regex or `/**` count cannot prove semantic completeness.
+3. Build risk-ranked candidate sets for deeper reading, including persistence/migration, protocol, state-machine/lifecycle, security, and domain contracts. This documentation set is independent of the structural shortlist: small modules can own important undocumented contracts.
+4. Inspect across roots, owners, declaration kinds, and visibility levels. Look for exports documented but internals missing; classes documented but private methods missing; types/interfaces without meaning; persisted/protocol schemas without contracts; constants without policy ownership; and an undocumented DTO/domain distinction. Also detect repeated semantically empty comments, not just absence.
+5. Sample enough files and contrasting documented examples to distinguish isolated gaps from owner-local or systemic debt, then search repository-wide for the suspected pattern before claiming it. Expand inspection when evidence is mixed. Record roots searched, representative files read, exclusions, and uninspected areas; do not claim every declaration was semantically verified if review was sampled or constrained.
+6. Report a small number of aggregated findings by shared pattern/semantic owner, with concrete file/symbol examples, convention evidence, missing meaning, maintenance or safety impact, and bounded remediation. Do not emit hundreds of “symbol X lacks docstring” findings, invent coverage percentages, or treat aggregate volume as a reason to escalate severity. Keep distinct high-risk incorrect contracts separate when their impact/remediation differs.
+
+### Quality questions
+
+- Is documentation missing, present but semantically empty, or useful? Does existing prose contradict the current contract?
+- Can a future maintainer understand responsibility, authority, invariants, preconditions/effects, and intentional non-goals without reconstructing them from implementation?
+- Are ownership, units, nullability, valid states, persistence/version compatibility, lifecycle/concurrency, resource release, security/privacy, and failure/effect certainty explained where relevant?
+- Does documentation describe the authoritative contract, with references rather than copied boilerplate where the repository supports that convention?
+- Do implementation-specific obligations remain visible even if a class/interface has good documentation?
+- Does a comment add semantic information rather than restate names, parameter names, obvious types, or trivial mechanics? Is it durable rather than stale/copied prose or implementation-history/AI narration?
+
+Completeness and quality are separate checks: a comment block is not proof of a documented contract. Recommend only claims supported by code, callers, tests, and governing evidence; do not resolve ambiguity by inventing guarantees. Documentation does not substitute for correcting unsafe behavior or mixed policy ownership.
+
+### Documentation severity
+
+Use the core severity/disposition model with these risk calibrations:
+
+- **NOTE/NIT:** isolated trivial omission with no meaningful maintenance risk; usually omit as standalone noise.
+- **MINOR:** repeated/systemic missing or empty documentation, or an internal semantic contract (including persistence/migration/state-machine helpers) whose intent must be reconstructed, with no demonstrated material safety defect.
+- **MAJOR:** missing or incorrect documentation materially obscures a safety/security/data-loss contract, externally relied-upon behavior, migration/rollback rule, or cross-module authority, creating credible correctness/audit risk. Explain that scenario; a persistence-related name alone is insufficient.
+- **BLOCKER:** only when documentation is required by a safety/compatibility gate and an actual severe ambiguity prevents safe evaluation/shipping. Never merely because comments are absent. Investigate and cite the gate and release-stopping risk.
+
+### Corrective documentation closure
+
+For each prior documentation finding, use the existing closure ledger and inspect final declarations, callers, tests, and governing contracts. Verify missing comments were added where required, their content explains the actual semantics, copied/stale text does not contradict the implementation, no misleading guarantee was introduced, and documentation remains aligned after code changes. For an aggregated finding, recheck the named examples and the pattern across its agreed scope—not only one repaired symbol. A newly added `/** ... */` or a green doc linter is not closure. Record remaining empty/misleading comments or incomplete pattern remediation as `still open — partially remediated`, with current risk and disposition.
+
+See [documentation examples](../examples/documentation-review.md) for calibrated findings and no-finding cases.
 
 ## Tests and test organization
 

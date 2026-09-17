@@ -1,18 +1,18 @@
 ---
 name: code-review
-description: Performs evidence-based semantic code and pull-request review beyond CI, linting, formatting, and typechecking. Use to assess correctness, architecture, maintainability, data safety, security, operability, tests, coverage, and TypeScript-specific risks, including corrective re-reviews after changes.
+description: Performs evidence-based semantic code and pull-request review beyond CI, linting, formatting, and typechecking. Use to assess correctness, architecture, maintainability, documentation, data safety, security, operability, tests, coverage, and TypeScript-specific risks, including repository-wide audits and corrective re-reviews.
 license: MIT
 ---
 
 # Code Review
 
-Review whether a change is safe, correct, coherent, and maintainable—not merely whether automation passes. Green CI is necessary evidence, but it is not proof that a change should ship.
+Review whether code is safe, correct, coherent, and maintainable—not merely whether automation passes. Green CI is necessary evidence, but it is not proof that a change should ship.
 
 ## Authority and scope
 
-After discovering the target and inspecting its complete diff, locate the target repository's applicable `AGENTS.md`, contributing guide, architecture documents, ADRs, milestone/spec/plan, CI configuration, tests, and nearby established conventions. Let changed concepts and affected paths guide this search; do not read every document blindly. Repository evidence overrides this skill's defaults. Do not mechanically impose Clean Architecture, file layouts, test locations, documentation formats, aliases, or tools on a project that intentionally uses another approach.
+After discovering the target and inspecting its complete diff (or source inventory for an explicit baseline review), locate the target repository's applicable `AGENTS.md`, contributing guide, architecture documents, ADRs, milestone/spec/plan, CI configuration, tests, and nearby established conventions. Let changed concepts and affected paths guide this search; do not read every document blindly. Repository evidence overrides this skill's defaults. Do not mechanically impose Clean Architecture, file layouts, test locations, documentation formats, aliases, or tools on a project that intentionally uses another approach.
 
-Keep findings within the change's risk surface and accepted delivery boundary. Inspect surrounding code and search repository-wide for semantic owners when needed to establish a contract or invariant, but do not turn a focused review into an unrelated redesign or report explicitly deferred later-phase behavior as missing.
+Keep findings within the review target's risk surface and accepted delivery boundary. Inspect surrounding code and search repository-wide for semantic owners when needed to establish a contract or invariant, but do not turn a focused review into an unrelated redesign or report explicitly deferred later-phase behavior as missing.
 
 ## Normal invocation
 
@@ -22,18 +22,20 @@ The intended day-to-day invocation is simply:
 /skill:code-review
 ```
 
-The reviewer must autonomously discover the active repository, change or PR, correct baseline, relevant repository context, risk dimensions, and canonical validation. The user should not normally need to provide a repository URL, PR number, base SHA, milestone, slice, mini review brief, or prompts to check inferable concerns such as effect certainty, architecture boundaries, protocol validation, ADR compliance, lifecycle races, or semantic reuse.
+The reviewer must autonomously discover the active repository, change or PR, correct baseline, relevant repository context, risk dimensions, and canonical validation. The user should not normally need to provide a repository URL, PR number, base SHA, milestone, slice, mini review brief, or prompts to check inferable concerns such as effect certainty, architecture boundaries, protocol validation, ADR compliance, lifecycle races, semantic reuse, or documentation completeness/quality.
 
 An explicit user target, range, repository, context, or focus is an override or additive focus, not a prerequisite and not a replacement for autonomous discovery. If the environment genuinely cannot identify a safe target or baseline, ask one concise question for only the missing information rather than guessing.
 
 ## Review workflow
 
-Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the changed code is TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios, [`examples/corrective-review.md`](examples/corrective-review.md) for finding-closure and policy-literal calibration, and [`examples/stateful-structural-approval.md`](examples/stateful-structural-approval.md) for the stateful structural approval gate.
+Run [`checklists/review-discovery.md`](checklists/review-discovery.md) first; it is the single authoritative algorithm for target, baseline, context, and internal Review Brief discovery. Then use [`checklists/pr-review.md`](checklists/pr-review.md) for the ordered change/PR workflow and [`checklists/semantic-review.md`](checklists/semantic-review.md) for the final language-agnostic semantic pass. When the review target includes TypeScript, also load [`profiles/typescript.md`](profiles/typescript.md). See [`examples/discovery.md`](examples/discovery.md) for one-command discovery scenarios, [`examples/corrective-review.md`](examples/corrective-review.md) for finding-closure and policy-literal calibration, and [`examples/stateful-structural-approval.md`](examples/stateful-structural-approval.md) for the stateful structural approval gate.
+
+Explicit requests to “review the whole repo,” perform a “repo-wide review,” or conduct a “baseline review” target the current baseline without requiring a PR/diff. Follow discovery's baseline path: inventory production source, build risk-ranked candidate sets, include documentation completeness, and aggregate repeated debt by pattern/owner with concrete evidence. Normal invocation remains change-focused.
 
 At minimum:
 
 1. Discover the repository, complete review target, correct baseline/range, and any intentional working-tree overlay.
-2. Inspect the complete diff, identify changed concepts, and derive an evidence-backed internal Review Brief from relevant repository sources.
+2. Inspect the complete diff, or inventory the current source baseline in repository-wide mode, and derive an evidence-backed internal Review Brief from relevant repository sources.
 3. Inspect automated checks, canonical validation, and meaningful diagnostics.
 4. Read affected implementation, tests, semantic owners, and surrounding contracts.
 5. Review architecture, module cohesion, public-contract placement, control flow, failure behavior, data safety, security, lifecycle/concurrency, operability, and compatibility in proportion to discovered risk.
@@ -51,6 +53,7 @@ At minimum:
 - Prefer typed or structured failures when supported. Never let an important failure silently become a successful empty result.
 - Prioritize data integrity, trust boundaries, and externally observable behavior over convenience or style.
 - Treat coverage as a regression signal, not proof of behavior quality.
+- Audit documentation completeness and semantic quality as maintainability, including internal contracts—not comment counts or narration. Use the [semantic documentation audit](checklists/semantic-review.md#documentation-completeness-and-quality) for scope, aggregation, severity, and corrective closure, and the [TypeScript profile](profiles/typescript.md#documentation) as the authoritative TSDoc declaration policy. Aggregate systemic debt rather than report each symbol; see [documentation examples](examples/documentation-review.md).
 - For async work that crosses lifecycle boundaries, identify the relevant lifetimes and make each `busy`, `pending`, `inFlight`, `loaded`, or `active` guard belong to the lifetime of the invariant it protects. Do not assume teardown cancels host work; check that reload, re-enable, or retry cannot reset exclusion while non-cancellable work remains pending, and that stale completion cannot affect a newer lifetime. When operation ownership and presentation/session ownership differ, keep them separate. Apply the detailed lifecycle/interleaving checks in the semantic checklist.
 - Do not add dependencies, abstraction, functional-programming libraries, or type cleverness solely to satisfy reviewer taste.
 
@@ -206,7 +209,7 @@ Give every prior actionable finding exactly one disposition:
 
 “Partially fixed” describes progress, not closure: record it as `still open — partially remediated` and identify both the improvement and residual concern. A finding never disappears because nearby code changed, tests became green, concrete bugs in the same module were fixed, or the reviewer concentrated on the corrective delta. Resolved findings need not be repeated verbosely; a compact finding-resolution table or list is sufficient.
 
-Inspect the complete resulting code path for each prior finding, not only changed lines. A shared-constant extraction may resolve duplicated route/header ownership while leaving status/failure/effect policy distributed; report those as separate outcomes or partial remediation rather than marking the broader concern fixed.
+Inspect the complete resulting code path for each prior finding, not only changed lines. Documentation findings must pass the [semantic closure checks](checklists/semantic-review.md#corrective-documentation-closure); a new comment block alone is not a fix. A shared-constant extraction may resolve duplicated route/header ownership while leaving status/failure/effect policy distributed; report those as separate outcomes or partial remediation rather than marking the broader concern fixed.
 
 ### Reassess prior structural candidates
 
@@ -348,7 +351,7 @@ A meaningful correctness or engineering defect that should normally be fixed bef
 
 ### MINOR
 
-A localized issue with limited impact: maintainability or organization problems, weak documentation, modest test gaps, naming inconsistencies, or small avoidable complexity. It should be addressed, but need not block when the repository permits follow-up.
+An issue with limited impact, localized or repeated: maintainability or organization problems, weak documentation, modest test gaps, naming inconsistencies, or small avoidable complexity. It should be addressed, but need not block when the repository permits follow-up.
 
 ### NIT / OPTIONAL
 
@@ -391,7 +394,7 @@ The Review Brief remains internal except for the compact structural candidate as
 Verdict: REQUEST CHANGES / APPROVE WITH NOTES / APPROVE
 
 Review context (optional)
-- target: PR/branch/range and any intentional working-tree overlay
+- target: PR/branch/range or repository baseline revision, and any intentional working-tree overlay
 - governing evidence: relevant spec/ADR/contract and explicit scope boundary
 - principal risks: only the highest-value discovered review dimensions
 
@@ -401,7 +404,7 @@ Finding resolution (required for corrective review)
 Structural candidate assessment (required when candidates were selected now or in a prior review)
 - `path/file`: selection signals and concise current responsibility inventory
 - cohesion result: cohesive / mixed low-risk / policy-drift risk, with evidence
-- contracts, decision matrix, protocol literal ownership, and public/lifecycle documentation: assessed outcome or linked finding
+- contracts, decision matrix, protocol literal ownership, and documentation (including internal declarations): assessed outcome or linked finding
 - stateful gate when applicable: discovered dimensions, transition/policy owner, matrix-focused test evidence, and why cohesion or resolution was demonstrated—or the linked retained finding
 - corrective pass only: how responsibility and state-policy ownership changed, resolved, or failed to reduce the original structural risk
 
@@ -426,6 +429,7 @@ Validation reviewed
 - tests: relevant suites and behavior inspected
 - coverage: change and configuration inspected
 - lint/typecheck/diagnostics: results and gaps inspected
+- documentation audit: scope/convention and outcome; for repository-wide reviews, roots searched, representative files inspected, exclusions, and coverage limits
 - manual semantic review: completed
 
 Final assessment
@@ -440,7 +444,7 @@ Before issuing the verdict, ask:
 
 - Is this actually correct for every relevant state and failure path?
 - Is the architecture still coherent and is dependency direction preserved?
-- Are contracts and invariants preserved?
+- Are contracts and invariants preserved, and is required documentation both complete and semantically useful?
 - Can this lose, overwrite, expose, or corrupt user data?
 - Does error behavior make sense at each boundary?
 - Did the change accidentally widen scope or permissions?

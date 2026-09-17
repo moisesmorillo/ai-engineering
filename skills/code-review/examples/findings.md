@@ -390,7 +390,7 @@ A single local `"GET"` used by one request path with no shared method policy, pl
 
 **Bad finding wording**
 
-> Add TSDoc to every method.
+> Add a comment block to every method; any description is sufficient.
 
 **Strong finding wording**
 
@@ -398,9 +398,9 @@ A single local `"GET"` used by one request path with no shared method policy, pl
 > **Location:** `src/remote/remote-bridge.ts:14-28`
 > **Why it matters:** `sendMutation` accepts an abort signal but the implementation may settle after the request reached the remote service; callers must release a resource and reconcile an `effect: "unknown"` result rather than assume cancellation prevented mutation. Neither the type nor name expresses those lifecycle and safety obligations.
 > **Evidence:** The implementation documents neither abort ownership nor post-dispatch settlement, while callers dispose resources immediately after `AbortError`. This is a public contract concern, not a request to narrate implementation.
-> **Recommended direction:** Document the authoritative interface with abort ownership, settlement/effect semantics, and caller resource obligations. Do not duplicate boilerplate on implementation methods that simply satisfy that interface, and do not add TSDoc to trivial private mappers.
+> **Recommended direction:** Document the authoritative interface with abort ownership, settlement/effect semantics, and caller resource obligations. For implementations, use the repository's supported inherited-contract reference when semantics are identical rather than copying boilerplate; document distinct effects separately. Audit private mappers too under the [TypeScript declaration policy](../profiles/typescript.md#documentation), with concise semantic TSDoc rather than narration.
 
-**Why the strong version is better:** It asks for durable caller-facing contract documentation and explicitly excludes redundant commentary.
+**Why the strong version is better:** It asks for durable contract documentation without treating visibility as an exemption or rewarding redundant commentary. See [documentation review examples](documentation-review.md) for internal helpers, schemas, and aggregated baseline findings.
 
 ## 24. Structural candidate assessment prevents a silent pass
 
@@ -409,6 +409,6 @@ A single local `"GET"` used by one request path with no shared method policy, pl
 > **Structural candidate assessment:** `src/remote/fetch-remote-bridge.ts`
 > **Selection signals:** protocol-heavy adapter; exported contracts and concrete implementation; request/auth/lifecycle/streaming/mapping/classification helpers; external-contract literals.
 > **Responsibility inventory:** transport dispatch and request construction are mechanics; status/failure/effect/retry classification is protocol policy; DTO translation is boundary mapping; abort/settlement is operation lifecycle; exported bridge contracts may have an independent import lifecycle.
-> **Assessment:** Inspect cohesion, exported contract placement, the status/failure/effect/retry call chain, protocol literal family owners, and public/lifecycle contract documentation. A final review may conclude some dimensions are intentionally colocated or separately owned, but it must state that evidence rather than silently omitting them.
+> **Assessment:** Inspect cohesion, exported contract placement, the status/failure/effect/retry call chain, protocol literal family owners, and documentation completeness/quality including private/internal contracts. A final review may conclude some dimensions are intentionally colocated or separately owned, but it must state that evidence rather than silently omitting them.
 
 **Why this matters:** Candidate signals trigger semantic investigation, not a metric finding. The same assessment can conclude that a 1200-line grammar/parser is cohesive and has no actionable finding.
