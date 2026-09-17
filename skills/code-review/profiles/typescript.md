@@ -84,26 +84,27 @@ Useful documentation captures what a future maintainer cannot safely infer from 
 
 Explicitly audit private/protected methods implementing state transitions, persistence, retry policy, security decisions, validation, reconciliation, lifecycle fencing, effect classification, migration, or protocol mapping. A class-level comment does not cover a method's distinct preconditions/effects. Free/internal conversion helpers also need their own semantic contracts: an exported decoder's good TSDoc does not automatically document its helper tail.
 
-For historical codecs, inspect device-state, lifecycle, path-state, acknowledgement, desired-state, unresolved-mutation, staged-handoff, transferable-acknowledgement, identifier, and precondition converters where present. Explain exact predicate/revision reconstruction, frozen compatibility, migration boundaries, state-machine and handoff safety obligations where each applies. Do not copy the same broad promise onto every helper without checking its actual role.
+For historical or persisted codecs, inspect converters for legacy versioned state, persisted identifiers, predicates, revisions, effects, and other compatibility-sensitive fields. Document whether each converter performs exact compatibility-preserving reconstruction, a migration-only transformation, or version/downgrade fencing. Where the contract requires exact rehydration, make clear that repair, normalization, and reinterpretation are forbidden. Do not copy the same broad promise onto every helper without checking its actual role.
 
-For example, replace `/** Converts a device state. */` with an evidenced contract such as:
+For example, replace `/** Converts legacy state. */` with evidenced contracts such as:
 
 ```ts
 /**
- * Rehydrates the frozen M3 v2 DTO into its exact domain representation.
+ * Rehydrates a validated legacy-version DTO into its exact domain representation.
  *
- * Performs typed identifier/path reconstruction only. It must not migrate,
- * repair, normalize, or reinterpret historical persisted state.
+ * Performs persisted identifier reconstruction only. It must not migrate, repair,
+ * normalize, or reinterpret the historical state.
  */
-function convertDeviceState(dto: DeviceStateDto): DeviceState { /* ... */ }
+function convertLegacyState(dto: LegacyStateDto): HistoricalState { /* ... */ }
 
 /**
- * Reconstructs one validated persisted mutation intent without changing its
- * action, original predicate, retry counters, or effect-recovery semantics.
+ * Reconstructs one validated persisted operation without changing its action,
+ * original predicate, revision, retry counters, or effect-recovery semantics.
  *
- * This compatibility decoder must never refresh predicates from newer remote state.
+ * This compatibility-preserving converter must never derive replacement evidence
+ * from newer state.
  */
-function convertUnresolvedMutation(dto: MutationDto): Mutation { /* ... */ }
+function convertPersistedOperation(dto: PersistedOperationDto): PersistedOperation { /* ... */ }
 ```
 
 For truly mechanical private delegation, a short one-line TSDoc identifying the delegated contract/owner is acceptable. Where the repository supports it, use a resolvable inherited-contract reference instead of copying interface prose; verify identical semantics and document implementation-specific effects separately. Without such an evidenced convention, do not silently exempt implementations. A trivial named helper such as `byteLength()` still enters the inventory; a short unit/encoding contract is enough, and its isolated omission is not a high-severity standalone finding.
@@ -122,15 +123,15 @@ Illustrative excerpts (the comment must match the actual schema and compatibilit
 
 ```ts
 /**
- * Frozen persisted M3 device-state v2 schema.
+ * Frozen historical persisted-state schema for one legacy format version.
  *
- * Used only to decode historical state for migration. It must not be widened to
- * accept M4/v3 fields or future formats.
+ * Used only by a migration decoder. It must not be widened to accept fields from
+ * other persisted versions or future formats.
  */
-const deviceStateSchema = z.object({ /* frozen v2 fields */ }).strict();
+const legacyPersistedStateSchema = z.object({ /* frozen legacy fields */ }).strict();
 
-/** DTO accepted by the frozen v2 persisted-state schema before domain rehydration. */
-type DeviceStateDto = z.infer<typeof deviceStateSchema>;
+/** Validated legacy persisted-state DTO before domain rehydration. */
+type LegacyPersistedStateDto = z.infer<typeof legacyPersistedStateSchema>;
 ```
 
 Require a separate inferred-type comment when the alias has a meaningful architectural role, such as distinguishing a validated persisted DTO from rehydrated domain state. Do not mechanically document every local `z.infer`. Schema TSDoc must agree with actual parsing, unknown-key, transform/refinement, and version behavior; a claim of frozen acceptance does not make a permissive parser safe.
