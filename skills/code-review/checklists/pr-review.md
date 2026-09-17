@@ -1,6 +1,6 @@
 # Change and Pull Request Review Workflow
 
-Follow this order for an initial review of a PR, branch, commit range, working-tree change, or explicit repository-wide audit. Increase depth for high-risk changes; do not skip the final semantic pass because automation is green.
+Follow this order for an initial review of a PR, branch, commit range, working-tree change, or explicit repository-wide audit. Increase depth for high-risk changes; do not skip the final semantic pass because automation is green. In explicit baseline mode, use discovery's source inventory and risk-ranked candidates instead of diff/range steps; no PR is required, and CI evidence must be tied to the baseline actually reviewed.
 
 ## 1. Discover the review target and context
 
@@ -8,9 +8,9 @@ Run [`review-discovery.md`](review-discovery.md) before evaluating findings, inc
 
 If discovery leaves materially different targets or baselines plausible, ask one concise question and stop before findings. Do not guess. Keep the detailed precedence and evidence-conflict algorithm owned by the discovery checklist rather than duplicating it here.
 
-## 2. Confirm the complete diff and intended change
+## 2. Confirm the complete diff and intended change (or baseline scope)
 
-Read every production, test, configuration, schema, generated, dependency, and documentation file in the Review Brief's complete range, including any intentionally included working-tree overlay. Watch for scope creep, generated or lockfile churn, hidden deletions, changed defaults, and behavior split across commits or files. Do not review only the latest commit of a multi-commit change.
+For a change review, read every production, test, configuration, schema, generated, dependency, and documentation file in the Review Brief's complete range, including any intentionally included working-tree overlay. For an explicit baseline review, confirm source roots, exclusions, and risk-ranked candidates, then inspect the current source/contracts rather than demanding a diff. Watch for scope creep, generated or lockfile churn, hidden deletions, changed defaults, and behavior split across commits or files. Do not review only the latest commit of a multi-commit change.
 
 Confirm the brief's intent against the actual diff, applicable repository instructions, current contracts/design evidence, tests, and established conventions. Treat PR/issue descriptions as supporting evidence rather than authority. Verify:
 
@@ -38,13 +38,19 @@ For every selected candidate, create a concise responsibility inventory: indepen
 
 If the candidate materially owns or coordinates stateful or safety-critical behavior, apply the authoritative [`Stateful structural approval gate`](../SKILL.md#stateful-structural-approval-gate). Reconstruct the repository-specific cross-method transition matrix and its ownership before approving; a broad label, small methods, readable guards, colocated code, dedicated constants, or passing tests are insufficient evidence by themselves.
 
-Apply the authoritative [implementation-local declaration and helper ownership guidance](../SKILL.md#implementation-local-declarations-and-helper-ownership), then inspect exported interfaces/types/ports/constants and their consumers. Confirm that consumers do not need to import a concrete implementation just to use an independently owned contract, but preserve useful colocation where the contract is local to that implementation. Follow status/failure/effect/retry/action call chains rather than inspecting helpers in isolation; construct the conceptual matrix and determine whether it has overlapping branches, impossible or missing combinations, action-specific differences, duplicated refusal/retry knowledge, or several independently editable owners—or whether separate layers intentionally own distinct semantics. For protocol-heavy candidates, inventory methods, statuses, headers, media types, route fragments, action strings, and protocol markers as families, then search repository-wide for constants, schemas, OpenAPI/routes, parsers/formatters, enums, and classifiers. Inspect a family collectively even when each literal occurs only once, all are in one file, and no canonical constant exists: the concern is an implicit policy table, not the absence of constants. For candidate public APIs and lifecycle/concurrency helpers, assess whether ownership, cancellation, settlement, effect certainty, resource release, security, and caller obligations are documented at the authoritative abstraction.
+Apply the authoritative [implementation-local declaration and helper ownership guidance](../SKILL.md#implementation-local-declarations-and-helper-ownership), then inspect exported interfaces/types/ports/constants and their consumers. Confirm that consumers do not need to import a concrete implementation just to use an independently owned contract, but preserve useful colocation where the contract is local to that implementation. Follow status/failure/effect/retry/action call chains rather than inspecting helpers in isolation; construct the conceptual matrix and determine whether it has overlapping branches, impossible or missing combinations, action-specific differences, duplicated refusal/retry knowledge, or several independently editable owners—or whether separate layers intentionally own distinct semantics. For protocol-heavy candidates, inventory methods, statuses, headers, media types, route fragments, action strings, and protocol markers as families, then search repository-wide for constants, schemas, OpenAPI/routes, parsers/formatters, enums, and classifiers. Inspect a family collectively even when each literal occurs only once, all are in one file, and no canonical constant exists: the concern is an implicit policy table, not the absence of constants. Assess candidate documentation under the [documentation completeness audit](semantic-review.md#documentation-completeness-and-quality), including private/internal declarations; this audit also applies outside structural candidates.
 
 If decomposition is warranted, name the independent responsibilities, the drift or audit risk, the semantic boundaries, what remains together, behavior-preserving scope, and tests that protect independently testable policy areas. In the final review, visibly record the candidate assessment and link any resulting finding. Do not write “file is too large,” create a constants junk drawer, require one interface per file, or add boilerplate method comments.
 
-## 6. Perform the repository-wide duplication and reuse audit
+## 6. Audit reuse and documentation
+
+### Repository-wide duplication and reuse audit
 
 For each changed or newly introduced protocol, business, storage, security, or lifecycle concept, search the repository—not only the diff—for existing helpers, types, schemas, constants, route strings, regexes, serialization formats, error/status codes, storage prefixes, and policy wording. Classify matches as textual, structural, or semantic duplication; identify the authoritative owner and existing primitive; and report only concrete drift, boundary, or reuse risks. Do not turn this step into a blanket DRY rule: preserve local code when semantics or policies intentionally differ.
+
+### Documentation completeness and quality audit
+
+Run the [semantic documentation audit](semantic-review.md#documentation-completeness-and-quality) using discovery's convention evidence and applicable language profiles. For TypeScript, inventory named declarations in changed files under the [TSDoc policy](../profiles/typescript.md#documentation); prioritize introduced/materially changed contracts and relevant nearby omissions without unrelated cleanup. For explicit baseline reviews, use the repository-wide inventory/search/sampling path and aggregate repeated debt by pattern/owner. Mere comment presence is not semantic coverage.
 
 ## 7. Inspect affected tests
 
@@ -93,7 +99,7 @@ For every prior finding, record exactly one disposition:
 | `rejected` | New contract, implementation, or reproducer evidence disproves the original finding; cite it and correct the review record. |
 | `still open` | The issue remains in the final implementation; cite current evidence and current severity/blocking status. |
 
-Treat partial remediation as `still open — partially remediated`, not as closure. State concisely what improved and what remains. A compact table or list is enough; do not repeat the full prose for findings already fixed or disproved.
+Treat partial remediation as `still open — partially remediated`, not as closure. For documentation findings, apply the [corrective documentation closure checks](semantic-review.md#corrective-documentation-closure); added comment blocks alone do not establish semantic remediation. State concisely what improved and what remains. A compact table or list is enough; do not repeat the full prose for findings already fixed or disproved.
 
 For lifecycle or concurrency fixes, verify not only that the original scenario now passes but also that state and responsibility moved to the correct lifetime and layer, the fix is not merely another flag in the wrong abstraction, no stale-state or reset regression was introduced, the invariant is owned by the narrowest correct layer, and the tests reproduce the exact original failure interleaving.
 
@@ -127,6 +133,7 @@ When every automated check passes, spend review attention on what those checks u
 - authorization and trust boundaries remain intact;
 - architecture, module cohesion, public contract placement, and policy ownership remain coherent;
 - protocol-sensitive literals and status/effect/retry mappings have a repository-wide semantic owner where applicable;
+- documentation is complete and useful under the discovered convention, including private/internal contracts; comment presence alone does not prove this;
 - diagnostics omitted by CI have been considered;
 - tests execute and assert meaningful behavior rather than mocks or percentages;
 - rollout, compatibility, observability, and recovery are adequate.

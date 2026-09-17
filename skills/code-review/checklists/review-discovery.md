@@ -21,13 +21,15 @@ Use local Git state, branch and worktree metadata, remotes, session context, and
 
 Treat PR title/body, issue text, and review descriptions as useful intent evidence but not authority. Verify them against the complete diff, repository contracts, current design sources, and tests. A misleading or incomplete description must not shrink the review.
 
-When a hosted PR is associated with the current branch/session, compare its verified head SHA with local `HEAD` and record both. Use the hosted head when they match. If local `HEAD` is a descendant of the hosted head on the same change branch, review through local `HEAD` as an unpublished committed extension of the PR and disclose which commits lack hosted CI evidence. If the hosted head is a descendant of local `HEAD`, review the hosted PR head after making its objects/diff available. If the heads diverge, their relationship cannot be refreshed, or the local commits may belong to a different change, ask one concise question when the alternatives would materially change the review. Do not silently omit either side or conflate an unpublished commit with an uncommitted working-tree overlay.
+In change mode, when a hosted PR is associated with the current branch/session, compare its verified head SHA with local `HEAD` and record both. Use the hosted head when they match. If local `HEAD` is a descendant of the hosted head on the same change branch, review through local `HEAD` as an unpublished committed extension of the PR and disclose which commits lack hosted CI evidence. If the hosted head is a descendant of local `HEAD`, review the hosted PR head after making its objects/diff available. If the heads diverge, their relationship cannot be refreshed, or the local commits may belong to a different change, ask one concise question when the alternatives would materially change the review. Do not silently omit either side or conflate an unpublished commit with an uncommitted working-tree overlay.
 
 Keep committed and local changes distinct. A PR/branch review normally covers its committed semantic range; include an uncommitted overlay only when the user or current corrective-work context makes it part of the target, and state that inclusion. Do not silently include unrelated dirty files or imply that remote CI validated them. When the working tree is the only target, use the staged/unstaged changes and relevant untracked files and do not ask for a PR number.
 
 ## 2. Establish the correct baseline and range
 
-Use the strongest available baseline evidence in this order:
+**Explicit repository-wide mode:** “review the whole repo,” “repo-wide review,” and “baseline review” select the current source baseline (or an explicitly named revision), even if no PR or diff exists. Record the revision, roots, exclusions, and any intentionally included working-tree overlay. Do not ask for a PR/base or manufacture a comparison range. Skip change-range selection below; substitute a source/concept inventory for the diff steps that follow, then build risk-ranked candidate sets and run the [documentation completeness audit](semantic-review.md#documentation-completeness-and-quality) alongside the existing semantic audits.
+
+**Change mode:** use the strongest available baseline evidence in this order:
 
 1. The user's explicit range or baseline.
 2. The verified PR base branch and its merge base with the reviewed head.
@@ -54,9 +56,9 @@ Use this order:
 ```text
 discover target and baseline
         ↓
-inspect the complete diff
+inspect the complete diff (or inventory the explicit source baseline)
         ↓
-identify changed semantic concepts
+identify changed concepts (or baseline capabilities/contracts)
         ↓
 discover relevant repository rules, specs, plans, ADRs, and tests
         ↓
@@ -73,7 +75,7 @@ run or inspect canonical validation
 perform the final semantic pass
 ```
 
-After reading the complete diff, inventory changed concepts and affected architectural layers/capabilities. Use those concepts, changed paths, imports, types, functions, protocols, and nearby tests to search selectively for applicable:
+After reading the complete diff (or inventorying the explicit baseline), identify semantic concepts and architectural layers/capabilities. Use those concepts, relevant paths, imports, types, functions, protocols, and nearby tests to search selectively for applicable:
 
 - `AGENTS.md`, README, and contribution instructions;
 - architecture and current-state documentation;
@@ -82,7 +84,9 @@ After reading the complete diff, inventory changed concepts and affected archite
 - package/module documentation and established neighboring implementation;
 - CI configuration, task definitions, and tests that demonstrate contracts.
 
-Read applicable repository-root instructions and any more specific instructions governing changed paths. Do not read every document blindly. Every dynamically derived invariant, non-goal, architectural direction, and validation expectation must be traceable to repository or user evidence.
+Discover languages, source roots, and documentation conventions from package/build configuration, instructions, doc tooling, and representative source. Load the [TypeScript profile](../profiles/typescript.md) whenever TypeScript is in scope, without waiting for the user to request TSDoc review. Repeated undocumented internals alone are not evidence of an intentional exception to its default.
+
+Read applicable repository-root instructions and any more specific instructions governing reviewed paths. Do not read every document blindly. Every dynamically derived invariant, non-goal, architectural direction, and validation expectation must be traceable to repository or user evidence.
 
 ## 4. Select structural maintainability candidates
 
@@ -98,7 +102,7 @@ For each selected candidate, record a concise responsibility inventory in the Re
 - exported contracts/constants with an independent import or use lifecycle;
 - status/failure/effect/retry/action call chains that may form one distributed policy matrix;
 - protocol literal families—methods, statuses, headers, media types, route fragments, action strings, and protocol markers—and their repository-wide owners; and
-- whether public APIs or lifecycle/concurrency helpers document ownership, cancellation, settlement, effect certainty, resource release, security semantics, and caller obligations.
+- documentation completeness/quality for named semantic declarations, including private/internal contracts, under the applicable language profile and [documentation audit](semantic-review.md#documentation-completeness-and-quality).
 
 Determine whether the candidate materially owns or coordinates stateful or safety-critical behavior. If it does, the Review Brief must capture the repository-specific state dimensions, transition-causing events/results, decision inputs such as budgets/admission/effect/evidence, outcomes, implementation locations, authoritative policy owner, change coupling, and matrix-focused test evidence required by the [`Stateful structural approval gate`](../SKILL.md#stateful-structural-approval-gate).
 
@@ -129,6 +133,16 @@ Build a concise working brief before evaluating findings. It is primarily an int
 - source locations and meaningful conflicts or uncertainty;
 - PR/issue descriptions as corroborating rather than controlling evidence.
 
+### Documentation context
+
+- languages and applicable profiles, including TypeScript when present;
+- repository documentation convention, its evidence, and any intentional alternative/exemptions;
+- named declarations added/materially changed, including internal methods/helpers, types, schemas, and domain constants;
+- whether the PR introduces persisted, protocol, state-machine, or other high-risk contracts and where their documentation is owned;
+- for baseline mode, production roots/exclusions, declaration inventory, risk-ranked documentation candidates (not just structural candidates), and planned search/sampling coverage.
+
+Use the [semantic documentation audit](semantic-review.md#documentation-completeness-and-quality) and language profile for detailed rules; keep this brief internal.
+
 ### Accepted behavior and scope boundaries
 
 - required behavior and acceptance criteria;
@@ -157,7 +171,7 @@ Use this map to drive the existing repository-wide semantic duplication and reus
 
 ### Risk profile
 
-Increase scrutiny based on evidence when the change touches destructive operations, persistence, concurrency/CAS, authentication/authorization, secrets, protocol parsing, migrations, storage formats, recovery, lifecycle/state machines, retries/idempotency, network-effect certainty, or cross-device/process behavior. Also add structural maintainability risk when the diff introduces a very large file, a high concentration of semantic responsibilities, a protocol-heavy adapter, many literals tied to external contracts, or a public contract surface. These are investigation signals, not metric-based findings. Derive review dimensions from the diff and governing evidence; the user should not need to prompt separately for file cohesion, protocol literal ownership, effect certainty, architecture boundaries, protocol acknowledgement validation, ADR compliance, lifecycle races, or semantic reuse when they are inferable.
+Increase scrutiny based on evidence when the change touches destructive operations, persistence, concurrency/CAS, authentication/authorization, secrets, protocol parsing, migrations, storage formats, recovery, lifecycle/state machines, retries/idempotency, network-effect certainty, or cross-device/process behavior. Also add structural maintainability risk when the diff introduces a very large file, a high concentration of semantic responsibilities, a protocol-heavy adapter, many literals tied to external contracts, or a public contract surface. These are investigation signals, not metric-based findings. Derive review dimensions from the diff and governing evidence; the user should not need to prompt separately for file cohesion, protocol literal ownership, effect certainty, architecture boundaries, protocol acknowledgement validation, ADR compliance, lifecycle races, semantic reuse, or TSDoc completeness/quality when they are inferable.
 
 User-provided focus is additive. It does not replace autonomous discovery. Apply checklist sections proportionately; do not assign severity from a fixed checklist regardless of the actual risk.
 
@@ -181,13 +195,15 @@ Do not blindly make a test authoritative when it is stale, encodes a known bug, 
 
 ## 7. Corrective and repository-wide reviews
 
+For a corrective baseline audit, retain the explicit repository-wide scope, record the new reviewed revision/overlay, and apply the same finding-closure obligations without requiring a PR/diff. For corrective change reviews, use the PR/range rediscovery below.
+
 On corrective re-review, automatically rediscover the same active PR/change, retain the original baseline when still valid, and recover prior findings, prior severity/blocking status, focus, and every previously selected structural candidate from current conversational or associated review context. Do not require the user to paste them again. If complete prior review evidence is genuinely unavailable, state the gap and recover what can be established from hosted review comments or repository artifacts rather than silently treating the corrective pass as finding-free.
 
-Verify every prior actionable finding individually against the final resulting implementation, not only the corrective diff. Assign exactly one disposition—`fixed`, `intentionally deferred`, `rejected`, or `still open`—with evidence; record partial remediation as `still open — partially remediated`. Preserve the closure ledger even when the Review Brief is rebuilt because the diff, governing evidence, scope, or risk materially changed. Rejections require new evidence disproving the original finding; deferrals require accepted scope/rationale and evidence that residual risk is bounded and non-blocking.
+Verify every prior actionable finding individually against the final resulting implementation, not only the corrective diff. Apply the [documentation closure checks](semantic-review.md#corrective-documentation-closure) to prior documentation findings. Assign exactly one disposition—`fixed`, `intentionally deferred`, `rejected`, or `still open`—with evidence; record partial remediation as `still open — partially remediated`. Preserve the closure ledger even when the Review Brief is rebuilt because the diff, governing evidence, scope, or risk materially changed. Rejections require new evidence disproving the original finding; deferrals require accepted scope/rationale and evidence that residual risk is bounded and non-blocking.
 
 Carry prior structural candidates into the new brief and re-run their concise responsibility inventory over the final code and relevant call chains: current responsibilities, mechanics versus policy, public/exported contracts, protocol knowledge, lifecycle/concurrency ownership, distributed classifiers/decision tables, semantic owners, independently testable concerns, and whether the correction reduced the original risk. For each materially stateful candidate, reconstruct the final cross-method policy/state matrix, compare its responsibility and transition ownership before versus after, and apply the [`Stateful structural approval gate`](../SKILL.md#stateful-structural-approval-gate) anew. A file need not be split because it remains large, but a structural concern cannot disappear merely because correctness bugs or nearby constants were fixed. If repository/target state switched unexpectedly, resolve that ambiguity before issuing findings.
 
-Normal invocation reviews the active change, not every line of the repository. Construct a repository-wide brief only when the user explicitly requests an audit/baseline review or explicitly establishes that task when no change target exists. Repository-wide searches for semantic ownership and reuse remain required where relevant to changed concepts, but they do not authorize a total redesign.
+Normal invocation reviews the active change, not every line of the repository. An explicit repository-wide request selects baseline mode regardless of whether a change target exists. Build the baseline brief and risk-ranked candidate sets, audit documentation completeness across production source, and aggregate repeated debt by pattern/owner with concrete file examples and search evidence. Disclose sampling/coverage limits; do not flood the report with per-symbol omissions. Repository-wide searches for semantic ownership and reuse remain required where relevant to changed concepts, but they do not authorize a total redesign.
 
 ## 8. User-visible context
 
