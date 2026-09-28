@@ -1,12 +1,14 @@
 ---
 name: code-review
-description: Performs evidence-based semantic code and pull-request review beyond CI, linting, formatting, and typechecking. Use to assess correctness, architecture, maintainability, documentation, data safety, security, operability, tests, coverage, and TypeScript-specific risks, including repository-wide audits and corrective re-reviews.
+description: "Trigger: code changes, codebase audit, or corrective code review. Performs evidence-based semantic review of code, tests, and accompanying documentation beyond automation."
 license: MIT
 ---
 
 # Code Review
 
 Review whether code is safe, correct, coherent, and maintainable—not merely whether automation passes. Green CI is necessary evidence, but it is not proof that a change should ship.
+
+Use this skill for changes to implementation, tests, executable configuration, or a requested codebase audit. Review documentation that accompanies those changes for consistency and completeness. For implementation-facing PRDs, ADRs, specifications, or architecture-only changes, use `design-feasibility-review`; for mixed code and design changes, use both skills. Purely editorial documentation needs neither skill unless explicitly requested.
 
 ## Authority and scope
 

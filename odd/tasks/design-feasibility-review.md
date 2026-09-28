@@ -19,7 +19,7 @@ Delegated direct. Mapping trigger: the existing skill, checklists, README, and l
 ## Tasks
 
 - [x] T1 — Add `design-feasibility-review` with activation boundaries, official-source verification, quantitative worst-case limits, failure/concurrency counterexamples, corrective review, and an evidence-based verdict. Check its structure and apply it to the M7 design scenario. Commit the work unit.
-- [ ] T2 — Clarify `code-review` code scope, route design and mixed PRs in README, and preserve code-adjacent documentation review. Check routing consistency and repository links. Commit the work unit.
+- [x] T2 — Clarify `code-review` code scope, route design and mixed PRs in README, and preserve code-adjacent documentation review. Check routing consistency and repository links. Commit the work unit.
 
 ## Acceptance criteria
 
@@ -30,4 +30,4 @@ Delegated direct. Mapping trigger: the existing skill, checklists, README, and l
 
 ## Progress and next step
 
-Branch `feat/design-feasibility-review` created from clean main. Mapping and bounded writing completed. T1 structure/frontmatter checks and `git diff --check` passed. Manual M7 scenario: 10,000 head GETs + 200 LIST calls + 128 lane observations = 10,328 subrequests, above Workers Free internal-service 1,000 and Paid default 10,000; the new skill's aggregate-budget step would flag this before approval. Runtime harness: N/A, as this is an instruction artifact. Rollback boundary: remove the new skill and its T1 task record without affecting the existing reviewer. Engram mirror `odd/design-feasibility-review/tasks` pending because no Engram tool is exposed in this runtime. Next: commit T1, finish routing validation, and publish PR after remote credential authorization.
+Branch `feat/design-feasibility-review` created from clean main. Mapping and bounded writing completed. T1 committed as `08b80b5` (`feat(skills): add design feasibility review`). Structure/frontmatter checks and `git diff --check` passed. Manual M7 scenario: 10,000 head GETs + 200 LIST calls + 128 lane observations = 10,328 subrequests, above Workers Free internal-service 1,000 and Paid default 10,000; the new skill's aggregate-budget step would flag this before approval. T2 routing and relative README links passed a focused scripted check; code-adjacent documentation remains in `code-review`, design-only changes use the new skill, mixed changes use both, and editorial-only changes use neither by default. Runtime harness: N/A, as these are instruction artifacts. Rollback boundary: T1 removes the new skill; T2 restores the prior README and reviewer routing without touching runtime code. Engram mirror `odd/design-feasibility-review/tasks` pending because no Engram tool is exposed in this runtime. Next: commit T2 and publish PR after remote credential authorization.
