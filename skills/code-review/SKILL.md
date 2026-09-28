@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: "Trigger: code changes, codebase audit, or corrective code review. Performs evidence-based semantic review of code, tests, and accompanying documentation beyond automation."
+description: "Trigger: code or pull-request review, repository-wide or baseline audit, or corrective re-review. Performs evidence-based semantic review of implementation, tests, executable configuration, and accompanying documentation beyond CI, linting, formatting, and typechecking: correctness, architecture, maintainability, data safety, security, operability, tests, coverage, and TypeScript-specific risks."
 license: MIT
 ---
 
@@ -8,7 +8,13 @@ license: MIT
 
 Review whether code is safe, correct, coherent, and maintainable—not merely whether automation passes. Green CI is necessary evidence, but it is not proof that a change should ship.
 
-Use this skill for changes to implementation, tests, executable configuration, or a requested codebase audit. Review documentation that accompanies those changes for consistency and completeness. For implementation-facing PRDs, ADRs, specifications, or architecture-only changes, use `design-feasibility-review`; for mixed code and design changes, use both skills. Purely editorial documentation needs neither skill unless explicitly requested.
+Use this skill for changes to implementation, tests, executable configuration, or a requested codebase audit, and review documentation that accompanies those changes for consistency and completeness. Implementation-facing PRDs, ADRs, specifications, and architecture documents are not accompanying documentation; they always take the `design-feasibility-review` route:
+
+- If discovery lands on a target that contains only such documents, stop and hand off to `design-feasibility-review` instead of reviewing the design here.
+- If the target contains both code and such documents, run `design-feasibility-review` as well. This skill's documentation audit checks semantic quality; it does not compute aggregate platform budgets, so design content must receive that skill's resource-budget step even when it ships inside a code change.
+- When both skills run, the more restrictive verdict governs: `not ready` or `REQUEST CHANGES` from either skill blocks the merge decision.
+
+Purely editorial documentation needs neither skill unless explicitly requested.
 
 ## Authority and scope
 
