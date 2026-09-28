@@ -2,32 +2,37 @@
 
 ## Objective
 
-Provide a portable review skill for implementation-facing PRDs, ADRs, specifications, and architecture documents, while keeping `code-review` focused on code changes and their accompanying tests and documentation.
+Provide a portable review skill for implementation-facing PRDs, ADRs, specifications, and architecture documents, while keeping `code-review` focused on implementation, tests, executable configuration, and their accompanying documentation.
 
 ## Problem and scope
 
-The existing review skill covers semantic code and code-adjacent documentation but has no dedicated feasibility gate for design-only changes. PR #91 in `obsidian-ai-bridge` exposed a missing aggregate resource-budget check despite local validation. This feature adds a design review contract, explicit routing, and a small manual validation exercise. It does not change other repositories or configure OpenCode models.
+`code-review` audits code-adjacent documentation for semantic quality but has no feasibility gate for design content: it never sums aggregate platform budgets. A design-only change in a downstream repository passed local validation while exceeding the platform's per-invocation subrequest limit. This work adds a design review contract, unambiguous routing between the two skills, a rule for composing their verdicts, and a manual validation scenario. It changes skill instructions and the README only.
 
-## Authorization and constraints
+## Constraints
 
-The user authorized a PR in `moisesmorillo/ai-engineering`. Preserve portable guidance, repository-local authority, and the existing semantic documentation audit for code PRs. Purely editorial documentation does not trigger feasibility review. Mixed PRs use both skills. Remote push and PR creation await explicit credential/session authorization.
-
-## Route and delivery
-
-Delegated direct. Mapping trigger: the existing skill, checklists, README, and local style guide need inspection. Writer trigger: the new skill and routing documentation require multiple nontrivial edits. Preparation mapping was delegated before source edits. Forecast: under 400 authored changed lines; single PR. TDD: no repository configuration or test runner; use manual scenario review, frontmatter/link checks, and diff hygiene.
+- Preserve portable guidance, repository-local authority, and the existing semantic documentation audit for code changes.
+- Implementation-facing design documents always take the design route, even when they ship with code. Purely editorial documentation triggers neither skill.
+- Do not restate `code-review` policy inside the new skill; reference its discovery checklist, closure vocabulary, and severity scale instead.
 
 ## Tasks
 
-- [x] T1 — Add `design-feasibility-review` with activation boundaries, official-source verification, quantitative worst-case limits, failure/concurrency counterexamples, corrective review, and an evidence-based verdict. Check its structure and apply it to the M7 design scenario. Commit the work unit.
-- [x] T2 — Clarify `code-review` code scope, route design and mixed PRs in README, and preserve code-adjacent documentation review. Check routing consistency and repository links. Commit the work unit.
+- [x] T1 — Add `design-feasibility-review` with activation boundaries, primary-source limit verification, aggregate worst-case budgets, failure/concurrency counterexamples, corrective closure, severity-to-verdict mapping, and an evidence-based verdict.
+- [x] T2 — Narrow `code-review` to non-design documentation, define hand-off and both-skills behavior, and route changes in the README with a verdict composition rule.
 
 ## Acceptance criteria
 
-- Design-only implementation contracts receive quantified feasibility review, including platform plan assumptions and aggregate per-operation resource limits.
-- Corrective review recalculates the whole design after a fix, rather than checking only the original finding.
-- Code-only and mixed PR routing is unambiguous; editorial docs do not require a design review.
+- Design-only implementation contracts receive quantified feasibility review, including plan or tier assumptions and aggregate per-operation resource limits.
+- Corrective review dispositions every prior finding and recalculates the whole design after a fix.
+- Every change maps to exactly one routing row; an implementation-facing design document is never treated as accompanying documentation.
+- When both skills run, the more restrictive verdict governs.
 - Guidance is model agnostic and does not claim that one model or green CI proves correctness.
 
-## Progress and next step
+## Validation evidence
 
-Branch `feat/design-feasibility-review` created from clean main. Mapping and bounded writing completed. T1 committed as `08b80b5` (`feat(skills): add design feasibility review`); T2 committed as `7303f67` (`docs(skills): route code and design reviews`). Structure/frontmatter checks and `git diff --check` passed. Manual M7 scenario: 10,000 head GETs + 200 LIST calls + 128 lane observations = 10,328 subrequests, above Workers Free internal-service 1,000 and Paid default 10,000; the new skill's aggregate-budget step would flag this before approval. T2 routing and relative README links passed a focused scripted check; code-adjacent documentation remains in `code-review`, design-only changes use the new skill, mixed changes use both, and editorial-only changes use neither by default. Runtime harness: N/A, as these are instruction artifacts. Rollback boundary: T1 removes the new skill; T2 restores the prior README and reviewer routing without touching runtime code. Native RDD assessment was unavailable because `gentle-ai` is not installed. Engram mirror `odd/design-feasibility-review/tasks` pending because no Engram tool is exposed in this runtime. PR #11 is open and mergeable; this repository reports no GitHub checks. Next: owner review and merge decision.
+- No runtime harness applies: these are instruction artifacts and the repository has no CI or test runner. Validation is manual scenario review, frontmatter and relative-link checks, and `git diff --check`.
+- Manual scenario: a design performs 10,000 head GETs + 200 LIST calls + 128 lane observations per invocation = 10,328 subrequests to Cloudflare internal services. Limit source: [Workers platform limits, "Subrequests"](https://developers.cloudflare.com/workers/platform/limits/), retrieved 2026-09-28: subrequests to internal services are 1,000 per invocation on the Free plan and 10,000 by default on the Paid plan. The design exceeds both, so the aggregate-budget step returns `not ready` before approval.
+- Routing check: a code change with an ADR maps only to the "both skills" row; a code change with a changelog entry maps only to the `code-review` row.
+
+## Rollback boundary
+
+T1 removes the new skill directory. T2 restores the prior `code-review` description and README routing. Neither touches runtime code.
