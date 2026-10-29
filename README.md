@@ -7,6 +7,7 @@ Reusable assets for building and operating AI-assisted engineering workflows.
 - [`skills/`](skills/) — portable, task-focused instructions for AI agents.
   - [`code-review`](skills/code-review/SKILL.md) — semantic code and pull-request review of implementation, tests, executable configuration, and accompanying documentation, with an initial TypeScript profile.
   - [`design-feasibility-review`](skills/design-feasibility-review/SKILL.md) — feasibility review of implementation-facing PRDs, ADRs, specifications, and architecture documents.
+  - [`harness-browser`](skills/harness-browser/SKILL.md) — drive the built-in browser of the agent harness (Orca) for OAuth consent pages, logins and callback capture during a task; Herdr falls back to one owner-manual step.
 - [`odd/`](odd/) — task records for work delivered in this repository: objective, scope, acceptance criteria, and validation evidence. They document decisions, not live session state.
 
 ## Review routing
